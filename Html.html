@@ -2402,15 +2402,18 @@ function readSettingsForm() {
   };
 }
 
-function saveSettings() {
+async function saveSettings() {
   try {
     state.settings = readSettingsForm();
     persistSettings();
     applySettings();
+    if (supabaseConfigured()) {
+      await supabaseAnonymousLogin();
+    }
     renderSidebar();
     renderChat({scroll:false});
     closeSettings();
-    toast("บันทึกการตั้งค่าแล้ว");
+    toast(supabaseConfigured() ? "บันทึกแล้วและเชื่อมต่อ Supabase สำเร็จ" : "บันทึกการตั้งค่าแล้ว");
   } catch (error) {
     toast(error.message, "error");
   }
