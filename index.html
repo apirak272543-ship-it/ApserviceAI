@@ -1514,6 +1514,11 @@ html[data-theme="dark"] .alert {
         <button class="secondary-button" id="supabaseSignUpButton">สมัครบัญชี</button>
         <button class="secondary-button" id="supabaseSignOutButton">ออกจากระบบ</button>
       </div>
+      <h3>ส่งงานให้ AI Coding Agent</h3>
+      <div class="form-row"><label for="agentTaskTitle">ชื่องาน</label><input class="text-input" id="agentTaskTitle" value="ตรวจสอบและแก้โค้ด"></div>
+      <div class="form-row"><label for="agentTaskPrompt">คำสั่งงาน</label><textarea class="textarea-input" id="agentTaskPrompt" placeholder="เช่น อ่านระบบ Login แล้วแก้ให้ใช้งานได้ พร้อมรัน test"></textarea></div>
+      <div class="button-row"><button class="primary-button" id="agentTaskButton">ส่งงานให้ Agent Runner</button></div>
+      <div class="form-help">ต้องมี Agent Runner เปิดรอรับงานอยู่ใน Codespace หรือเครื่อง Runner</div>
       <h3>GitHub Agent</h3>
       <div class="form-help">ต้อง Deploy Supabase Edge Function ชื่อ github-agent และตั้งค่า GITHUB_TOKEN ก่อนใช้งาน</div>
       <div class="form-row"><label for="githubOwner">เจ้าของรีโพสิทอรี</label><input class="text-input" id="githubOwner" value="apirak272543-ship-it"></div>
@@ -1719,6 +1724,16 @@ async function supabaseRequest(path, options = {}, auth = true) {
   let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
   if (!response.ok) throw new Error(data?.msg || data?.message || data?.error_description || text || `HTTP ${response.status}`);
   return data;
+}
+
+async function createAgentTask() {
+  const session = supabaseSession();
+  if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเข้าสู่ระบบ Supabase ก่อน");
+  const prompt = $("#agentTaskPrompt").value.trim();
+  if (!prompt) throw new Error("กรุณาใส่คำสั่งงาน");
+  const response = await supabaseRequest("/rest/v1/tasks", {method: "POST", headers: {Prefer: "return=representation"}, body: JSON.stringify({user_id: session.user.id, title: $("#agentTaskTitle").value.trim() || "งานใหม่", prompt, repo_owner: $("#githubOwner").value.trim(), repo_name: $("#githubRepo").value.trim(), repo_branch: $("#githubBranch").value.trim() || "main", status: "queued"})});
+  $("#githubOutput").textContent = JSON.stringify(response, null, 2);
+  toast("ส่งงานเข้า Agent Queue แล้ว");
 }
 
 async function githubAgent(action, extra = {}) {
@@ -2911,6 +2926,7 @@ function bindEvents() {
   $("#cancelSettingsButton").addEventListener("click", closeSettings);
   $("#modalBackdrop").addEventListener("click", closeSettings);
   $("#saveSettingsButton").addEventListener("click", saveSettings);
+  $("#agentTaskButton").addEventListener("click", () => createAgentTask().catch(e => toast(e.message, "error")));
   $("#githubListButton").addEventListener("click", () => githubAgent("list_files").catch(e => toast(e.message, "error")));
   $("#githubReadButton").addEventListener("click", async () => { try { const data = await githubAgent("read_file"); $("#githubContent").value = data.content || ""; } catch (e) { toast(e.message, "error"); } });
   $("#githubRunsButton").addEventListener("click", () => githubAgent("runs").catch(e => toast(e.message, "error")));
