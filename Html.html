@@ -1541,6 +1541,13 @@ html[data-theme="dark"] .alert {
       </div>
       <div class="form-help" id="supabaseAuthStatus">สถานะฐานข้อมูล: ยังไม่ได้เชื่อมต่อ</div>
       <div class="form-help">ใช้ PIN ด้านหน้าเป็นการเข้าสู่ระบบสำหรับผู้ใช้คนเดียว ระบบจะสร้าง anonymous session ของ Supabase อัตโนมัติ ไม่ต้องใช้อีเมลหรือรหัสผ่าน</div>
+      <h3>Skills ของ Agent</h3>
+      <div class="form-help">ทักษะจะถูกเก็บใน Supabase และโหลดเป็นแนวทางให้ Agent ใช้ทำงาน</div>
+      <div class="form-row"><label for="skillName">ชื่อ Skill</label><input class="text-input" id="skillName" placeholder="เช่น Frontend Debugging"></div>
+      <div class="form-row"><label for="skillDescription">คำอธิบาย</label><input class="text-input" id="skillDescription" placeholder="ทักษะนี้ใช้เมื่อใด"></div>
+      <div class="form-row"><label for="skillInstructions">คำแนะนำให้ Agent</label><textarea class="textarea-input" id="skillInstructions" placeholder="ขั้นตอนและข้อควรทำของทักษะนี้"></textarea></div>
+      <div class="button-row"><button class="primary-button" id="saveSkillButton">บันทึก Skill</button><button class="secondary-button" id="loadSkillsButton">โหลด Skills</button></div>
+      <div id="skillsList" class="form-help"></div>
       <h3>ส่งงานให้ AI Coding Agent</h3>
       <div class="form-row"><label for="agentTaskTitle">ชื่องาน</label><input class="text-input" id="agentTaskTitle" value="ตรวจสอบและแก้โค้ด"></div>
       <div class="form-row"><label for="agentTaskPrompt">คำสั่งงาน</label><textarea class="textarea-input" id="agentTaskPrompt" placeholder="เช่น อ่านระบบ Login แล้วแก้ให้ใช้งานได้ พร้อมรัน test"></textarea></div>
@@ -1789,6 +1796,20 @@ async function supabaseRequest(path, options = {}, auth = true) {
   if (!response.ok) throw new Error(data?.msg || data?.message || data?.error_description || text || `HTTP ${response.status}`);
   return data;
 }
+
+async function saveSkill() {
+  const session=supabaseSession(); if(!supabaseConfigured()||!session?.access_token) throw new Error("กรุณาปลดล็อกและเชื่อมต่อ Supabase ก่อน");
+  const name=$("#skillName").value.trim(), description=$("#skillDescription").value.trim(), instructions=$("#skillInstructions").value.trim();
+  if(!name||!instructions) throw new Error("กรุณากรอกชื่อและคำแนะนำของ Skill");
+  await supabaseRequest("/rest/v1/skills",{method:"POST",headers:{Prefer:"resolution=merge-duplicates"},body:JSON.stringify({user_id:session.user.id,name,description,instructions,enabled:true})});
+  $("#skillName").value=""; $("#skillDescription").value=""; $("#skillInstructions").value=""; await loadSkills(); toast("บันทึก Skill แล้ว");
+}
+async function loadSkills() {
+  const session=supabaseSession(); if(!supabaseConfigured()||!session?.access_token) return;
+  const rows=await supabaseRequest("/rest/v1/skills?select=id,name,description,instructions,enabled&order=created_at.desc");
+  $("#skillsList").innerHTML=(rows||[]).map(skill=>`<div style="margin:8px 0;padding:10px;border:1px solid var(--border);border-radius:10px"><b>${escapeHtml(skill.name)}</b><br><small>${escapeHtml(skill.description||"")}</small><br><button class="danger-button skill-delete" data-skill-id="${skill.id}">ลบ</button></div>`).join("")||"ยังไม่มี Skill";
+}
+async function deleteSkill(id) { await supabaseRequest("/rest/v1/skills?id=eq."+encodeURIComponent(id),{method:"DELETE"}); await loadSkills(); }
 
 async function createAgentTask() {
   const session = supabaseSession();
@@ -3000,6 +3021,9 @@ function bindEvents() {
   $("#cancelSettingsButton").addEventListener("click", closeSettings);
   $("#modalBackdrop").addEventListener("click", closeSettings);
   $("#saveSettingsButton").addEventListener("click", saveSettings);
+  $("#saveSkillButton").addEventListener("click",()=>saveSkill().catch(e=>toast(e.message,"error")));
+  $("#loadSkillsButton").addEventListener("click",()=>loadSkills().catch(e=>toast(e.message,"error")));
+  $("#skillsList").addEventListener("click",event=>{const id=event.target.closest(".skill-delete")?.dataset.skillId;if(id)deleteSkill(id).catch(e=>toast(e.message,"error"));});
   $("#agentTaskButton").addEventListener("click", () => createAgentTask().catch(e => toast(e.message, "error")));
   $("#githubListButton").addEventListener("click", () => githubAgent("list_files").catch(e => toast(e.message, "error")));
   $("#githubReadButton").addEventListener("click", async () => { try { const data = await githubAgent("read_file"); $("#githubContent").value = data.content || ""; } catch (e) { toast(e.message, "error"); } });
