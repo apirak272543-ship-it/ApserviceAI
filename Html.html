@@ -1661,10 +1661,10 @@ const DEFAULT_SETTINGS = {
   temperature: 0.7,
   maxTokens: 4096,
   stream: true,
-  vision: true,
-  provider: "google",
-  supabaseUrl: "",
-  supabaseAnonKey: ""
+	  vision: true,
+	  provider: "google",
+	  supabaseUrl: "https://abtsctwfkgzciseppach.supabase.co",
+	  supabaseAnonKey: ""
 };
 
 const PROVIDER_PRESETS = {
@@ -1710,7 +1710,8 @@ function uid(prefix = "id") {
 
 function loadSettings() {
   try {
-    const settings = {...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("nova_settings") || "{}")};
+    const settings = {...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("nova_settings") || "{}")}
+    if (!settings.supabaseUrl) settings.supabaseUrl = DEFAULT_SETTINGS.supabaseUrl;
     if (settings.model === "gemini-2.5-flash") settings.model = "gemini-3.6-flash";
     return settings;
   } catch {
