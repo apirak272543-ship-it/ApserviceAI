@@ -98,7 +98,12 @@ def call_tool(name: str, args: dict):
 def run_task(task: dict):
     task_id = task["id"]
     db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "running", "started_at": "now()"}, "")
-    messages = [{"role": "system", "content": "You are a coding agent. Work directly in the workspace. Inspect before editing, make the requested changes, run relevant tests, and report what changed. Use tools when needed."}, {"role": "user", "content": task["prompt"]}]
+    skill_rows = db("GET", "/rest/v1/skills", params=f"?user_id=eq.{task['user_id']}&enabled=eq.true&order=created_at.asc")
+    skill_text = "\n\n".join(f"SKILL: {row['name']}\n{row.get('description','')}\n{row['instructions']}" for row in (skill_rows or []))
+    system_prompt = "You are a coding agent. Work directly in the workspace. Inspect before editing, make the requested changes, run relevant tests, and report what changed. Use tools when needed."
+    if skill_text:
+        system_prompt += "\n\nFollow these user skills when relevant:\n" + skill_text
+    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": task["prompt"]}]
     try:
         for _ in range(24):
             response = client.chat.completions.create(model=MODEL, messages=messages, tools=TOOLS, tool_choice="auto", temperature=0.1)
