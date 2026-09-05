@@ -1539,20 +1539,8 @@ html[data-theme="dark"] .alert {
         <label for="supabaseAnonKey">Supabase anon key</label>
         <input class="text-input" id="supabaseAnonKey" type="password" autocomplete="off" placeholder="eyJ..."><div class="form-help">ใช้ anon/publishable key เท่านั้น ห้ามใช้ service_role key</div>
       </div>
-      <div class="form-row">
-        <label for="supabaseEmail">อีเมล</label>
-        <input class="text-input" id="supabaseEmail" type="email" autocomplete="email">
-      </div>
-      <div class="form-row">
-        <label for="supabasePassword">รหัสผ่าน</label>
-        <input class="text-input" id="supabasePassword" type="password" autocomplete="current-password">
-      </div>
-      <div class="form-help" id="supabaseAuthStatus">ยังไม่ได้เข้าสู่ระบบ</div>
-      <div class="button-row">
-        <button class="secondary-button" id="supabaseSignInButton">เข้าสู่ระบบ</button>
-        <button class="secondary-button" id="supabaseSignUpButton">สมัครบัญชี</button>
-        <button class="secondary-button" id="supabaseSignOutButton">ออกจากระบบ</button>
-      </div>
+      <div class="form-help" id="supabaseAuthStatus">สถานะฐานข้อมูล: ยังไม่ได้เชื่อมต่อ</div>
+      <div class="form-help">ใช้ PIN ด้านหน้าเป็นการเข้าสู่ระบบสำหรับผู้ใช้คนเดียว ระบบจะสร้าง anonymous session ของ Supabase อัตโนมัติ ไม่ต้องใช้อีเมลหรือรหัสผ่าน</div>
       <h3>ส่งงานให้ AI Coding Agent</h3>
       <div class="form-row"><label for="agentTaskTitle">ชื่องาน</label><input class="text-input" id="agentTaskTitle" value="ตรวจสอบและแก้โค้ด"></div>
       <div class="form-row"><label for="agentTaskPrompt">คำสั่งงาน</label><textarea class="textarea-input" id="agentTaskPrompt" placeholder="เช่น อ่านระบบ Login แล้วแก้ให้ใช้งานได้ พร้อมรัน test"></textarea></div>
@@ -1822,6 +1810,18 @@ async function githubAgent(action, extra = {}) {
   return data;
 }
 
+async function supabaseAnonymousLogin() {
+  if (!supabaseConfigured()) return false;
+  const existing = supabaseSession();
+  if (existing?.access_token) { updateSupabaseAuthStatus(); await loadSupabaseChats().catch(console.warn); return true; }
+  const data = await supabaseRequest("/auth/v1/signup", {method: "POST", body: JSON.stringify({})}, false);
+  if (!data?.access_token) throw new Error("ต้องเปิด Anonymous Sign-Ins ใน Supabase Authentication ก่อน");
+  localStorage.setItem("nova_supabase_session", JSON.stringify(data));
+  updateSupabaseAuthStatus();
+  await loadSupabaseChats().catch(console.warn);
+  return true;
+}
+
 async function supabaseAuth(mode) {
   const formSettings = readSettingsForm();
   state.settings = {...state.settings, supabaseUrl: formSettings.supabaseUrl, supabaseAnonKey: formSettings.supabaseAnonKey};
@@ -1855,7 +1855,7 @@ function updateSupabaseAuthStatus() {
   const status = $("#supabaseAuthStatus");
   if (!status) return;
   const session = supabaseSession();
-  status.textContent = session?.user?.email ? `เข้าสู่ระบบแล้ว: ${session.user.email}` : "ยังไม่ได้เข้าสู่ระบบ";
+  status.textContent = session?.access_token ? "สถานะฐานข้อมูล: เชื่อมต่อแล้ว" : "สถานะฐานข้อมูล: ยังไม่ได้เชื่อมต่อ";
 }
 
 async function supabaseSyncChat(chat) {
@@ -2307,8 +2307,6 @@ function fillSettingsForm() {
   const s = state.settings;
   $("#supabaseUrl").value = s.supabaseUrl || "";
   $("#supabaseAnonKey").value = s.supabaseAnonKey || "";
-  $("#supabaseEmail").value = supabaseSession()?.user?.email || "";
-  $("#supabasePassword").value = "";
   updateSupabaseAuthStatus();
   $("#settingAppName").value = s.appName;
   $("#settingUserName").value = s.userName;
@@ -3007,9 +3005,6 @@ function bindEvents() {
   $("#githubReadButton").addEventListener("click", async () => { try { const data = await githubAgent("read_file"); $("#githubContent").value = data.content || ""; } catch (e) { toast(e.message, "error"); } });
   $("#githubRunsButton").addEventListener("click", () => githubAgent("runs").catch(e => toast(e.message, "error")));
   $("#githubWriteButton").addEventListener("click", () => githubAgent("write_file", {content: $("#githubContent").value, message: $("#githubCommitMessage").value.trim()}).then(() => toast("เขียนไฟล์และ Commit สำเร็จ")).catch(e => toast(e.message, "error")));
-  $("#supabaseSignInButton").addEventListener("click", () => supabaseAuth("signin").catch(error => toast("เข้าสู่ระบบไม่สำเร็จ: " + error.message, "error")));
-  $("#supabaseSignUpButton").addEventListener("click", () => supabaseAuth("signup").catch(error => toast("สมัครไม่สำเร็จ: " + error.message, "error")));
-  $("#supabaseSignOutButton").addEventListener("click", () => supabaseSignOut().catch(error => toast(error.message, "error")));
   $("#providerPreset").addEventListener("change", event => applyProviderPreset(event.target.value));
   $("#testConnectionButton").addEventListener("click", testConnection);
 
