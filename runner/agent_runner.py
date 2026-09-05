@@ -14,6 +14,9 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 WORKSPACE = Path(os.environ.get("WORKSPACE", ".")).resolve()
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "3"))
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+AUTO_STOP_CODESPACE = os.environ.get("AUTO_STOP_CODESPACE", "false").lower() == "true"
+CODESPACE_NAME = os.environ.get("CODESPACE_NAME", "")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 headers = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -27,6 +30,20 @@ def db(method: str, path: str, payload: Any = None, params: str = ""):
     response = requests.request(method, f"{SUPABASE_URL}{path}{params}", headers=headers, json=payload, timeout=30)
     response.raise_for_status()
     return response.json() if response.text else None
+
+
+def stop_codespace_if_idle():
+    if not (AUTO_STOP_CODESPACE and CODESPACE_NAME and GITHUB_TOKEN):
+        return
+    queued = db("GET", "/rest/v1/tasks", params="?status=eq.queued&select=id&limit=1")
+    if queued:
+        return
+    response = requests.post(
+        f"https://api.github.com/user/codespaces/{CODESPACE_NAME}/stop",
+        headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {GITHUB_TOKEN}", "X-GitHub-Api-Version": "2022-11-28"},
+        timeout=30,
+    )
+    response.raise_for_status()
 
 
 def safe_path(value: str) -> Path:
@@ -112,6 +129,7 @@ def run_task(task: dict):
             if not message.tool_calls:
                 result = {"answer": message.content or "", "workspace": str(WORKSPACE)}
                 db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
+                stop_codespace_if_idle()
                 return
             for call in message.tool_calls:
                 args = json.loads(call.function.arguments or "{}")
@@ -126,6 +144,7 @@ def run_task(task: dict):
         raise RuntimeError("agent reached tool-call limit")
     except Exception as exc:
         db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "failed", "error": str(exc), "completed_at": "now()"})
+        stop_codespace_if_idle()
 
 
 def main():

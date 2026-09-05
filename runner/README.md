@@ -13,6 +13,10 @@ export SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co"
 export SUPABASE_SERVICE_ROLE_KEY="YOUR_SUPABASE_SERVICE_ROLE_KEY"
 export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 export WORKSPACE="/workspaces/ApserviceAI"
+# ตั้งค่าเฉพาะเมื่อ Runner นี้อยู่ใน Codespace และต้องการให้หยุดเองหลังคิวว่าง
+export AUTO_STOP_CODESPACE="true"
+export CODESPACE_NAME="YOUR_CODESPACE_NAME"
+export GITHUB_TOKEN="YOUR_CODESPACE_TOKEN"
 python runner/agent_runner.py
 ```
 
@@ -40,6 +44,8 @@ Runner ใช้ Supabase service-role key ฝั่งเครื่อง run
 ```
 
 Runner จะรับ task ที่มี `status=queued`, เปลี่ยนเป็น `running`, เรียก Gemini ให้เลือก tools, บันทึก `tool_calls`, แล้วจบเป็น `completed` หรือ `failed`
+
+เมื่อเปิด `AUTO_STOP_CODESPACE=true` Runner จะตรวจว่าคิวไม่มีงาน `queued` หลังจบงาน แล้วเรียก GitHub Codespaces API เพื่อหยุด Codespace อัตโนมัติ การเปิดครั้งถัดไปต้องมีตัวเริ่ม Runner อัตโนมัติใน Codespace หรือผู้ใช้กดเปิดแล้วรัน Runner อีกครั้ง
 
 ## Tools ที่มี
 
