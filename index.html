@@ -1466,7 +1466,29 @@ html[data-theme="dark"] .alert {
     <div class="settings-page" data-page="data">
       <h3>ข้อมูลและประวัติ</h3>
       <div class="form-row">
-        <div class="form-help">ประวัติแชตและไฟล์แนบจะถูกจัดเก็บใน IndexedDB ของเบราว์เซอร์นี้ ข้อมูลจะไม่ซิงก์ข้ามอุปกรณ์โดยอัตโนมัติ</div>
+        <div class="form-help">ประวัติจะเก็บในเครื่อง และซิงก์กับ Supabase เมื่อเข้าสู่ระบบแล้ว</div>
+      </div>
+      <div class="form-row">
+        <label for="supabaseUrl">Supabase Project URL</label>
+        <input class="text-input" id="supabaseUrl" placeholder="https://your-project.supabase.co">
+      </div>
+      <div class="form-row">
+        <label for="supabaseAnonKey">Supabase anon key</label>
+        <input class="text-input" id="supabaseAnonKey" type="password" autocomplete="off" placeholder="eyJ..."><div class="form-help">ใช้ anon/publishable key เท่านั้น ห้ามใช้ service_role key</div>
+      </div>
+      <div class="form-row">
+        <label for="supabaseEmail">อีเมล</label>
+        <input class="text-input" id="supabaseEmail" type="email" autocomplete="email">
+      </div>
+      <div class="form-row">
+        <label for="supabasePassword">รหัสผ่าน</label>
+        <input class="text-input" id="supabasePassword" type="password" autocomplete="current-password">
+      </div>
+      <div class="form-help" id="supabaseAuthStatus">ยังไม่ได้เข้าสู่ระบบ</div>
+      <div class="button-row">
+        <button class="secondary-button" id="supabaseSignInButton">เข้าสู่ระบบ</button>
+        <button class="secondary-button" id="supabaseSignUpButton">สมัครบัญชี</button>
+        <button class="secondary-button" id="supabaseSignOutButton">ออกจากระบบ</button>
       </div>
       <div class="button-row">
         <button class="secondary-button" id="exportButton">ส่งออกข้อมูล JSON</button>
@@ -1521,7 +1543,9 @@ const DEFAULT_SETTINGS = {
   temperature: 0.7,
   maxTokens: 4096,
   stream: true,
-  vision: true
+  vision: true,
+  supabaseUrl: "",
+  supabaseAnonKey: ""
 };
 
 const state = {
@@ -1589,7 +1613,7 @@ async function dbSaveChat(chat) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const request = db.transaction(CHAT_STORE, "readwrite").objectStore(CHAT_STORE).put(chat);
-    request.onsuccess = () => resolve();
+    request.onsuccess = () => { supabaseSyncChat(chat).catch(console.error); resolve(); };
     request.onerror = () => reject(request.error);
   });
 }
@@ -1609,6 +1633,98 @@ async function dbClearChats() {
     const request = db.transaction(CHAT_STORE, "readwrite").objectStore(CHAT_STORE).clear();
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
+  });
+}
+
+function supabaseConfigured() {
+  return /^https:\/\/[^\s]+\.supabase\.co\/?$/.test(state.settings.supabaseUrl || "") && Boolean(state.settings.supabaseAnonKey);
+}
+
+function supabaseSession() {
+  try { return JSON.parse(localStorage.getItem("nova_supabase_session") || "null"); } catch { return null; }
+}
+
+function supabaseHeaders(auth = true) {
+  const session = supabaseSession();
+  return {
+    "Content-Type": "application/json",
+    apikey: state.settings.supabaseAnonKey,
+    ...(auth && session?.access_token ? {Authorization: "Bearer " + session.access_token} : {})
+  };
+}
+
+async function supabaseRequest(path, options = {}, auth = true) {
+  if (!supabaseConfigured()) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ anon key");
+  const response = await fetch(state.settings.supabaseUrl.replace(/\/$/, "") + path, {
+    ...options,
+    headers: {...supabaseHeaders(auth), ...(options.headers || {})}
+  });
+  const text = await response.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
+  if (!response.ok) throw new Error(data?.msg || data?.message || data?.error_description || text || `HTTP ${response.status}`);
+  return data;
+}
+
+async function supabaseAuth(mode) {
+  const formSettings = readSettingsForm();
+  state.settings = {...state.settings, supabaseUrl: formSettings.supabaseUrl, supabaseAnonKey: formSettings.supabaseAnonKey};
+  persistSettings();
+  const email = $("#supabaseEmail").value.trim();
+  const password = $("#supabasePassword").value;
+  if (!email || !password) throw new Error("กรุณากรอกอีเมลและรหัสผ่าน");
+  const path = mode === "signup" ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
+  const data = await supabaseRequest(path, {method: "POST", body: JSON.stringify({email, password})}, false);
+  if (mode === "signup" && !data?.access_token) {
+    toast("สมัครสำเร็จ โปรดตรวจอีเมลเพื่อยืนยันบัญชี");
+    return;
+  }
+  localStorage.setItem("nova_supabase_session", JSON.stringify(data));
+  updateSupabaseAuthStatus();
+  await loadSupabaseChats();
+  toast("เข้าสู่ระบบ Supabase สำเร็จ");
+}
+
+async function supabaseSignOut() {
+  const session = supabaseSession();
+  if (session?.access_token && supabaseConfigured()) {
+    await supabaseRequest("/auth/v1/logout", {method: "POST"}).catch(() => {});
+  }
+  localStorage.removeItem("nova_supabase_session");
+  updateSupabaseAuthStatus();
+  toast("ออกจากระบบแล้ว");
+}
+
+function updateSupabaseAuthStatus() {
+  const status = $("#supabaseAuthStatus");
+  if (!status) return;
+  const session = supabaseSession();
+  status.textContent = session?.user?.email ? `เข้าสู่ระบบแล้ว: ${session.user.email}` : "ยังไม่ได้เข้าสู่ระบบ";
+}
+
+async function supabaseSyncChat(chat) {
+  if (!supabaseConfigured() || !supabaseSession()?.user?.id) return;
+  await supabaseRequest("/rest/v1/chat_histories?on_conflict=user_id,id", {
+    method: "POST",
+    headers: {Prefer: "resolution=merge-duplicates"},
+    body: JSON.stringify({id: chat.id, user_id: supabaseSession().user.id, title: chat.title, chat: chat, updated_at: new Date(chat.updatedAt).toISOString()})
+  });
+}
+
+async function loadSupabaseChats() {
+  if (!supabaseConfigured() || !supabaseSession()?.user?.id) return;
+  const rows = await supabaseRequest("/rest/v1/chat_histories?select=chat&user_id=eq." + encodeURIComponent(supabaseSession().user.id) + "&order=updated_at.desc");
+  for (const row of rows || []) if (row.chat?.id) await dbSaveChatLocal(row.chat);
+  state.chats = await dbGetAllChats();
+  state.chats.sort((a,b) => b.updatedAt - a.updatedAt);
+  state.activeChatId = state.chats[0]?.id || null;
+  renderSidebar(); renderChat({scroll:false});
+}
+
+async function dbSaveChatLocal(chat) {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(CHAT_STORE, "readwrite").objectStore(CHAT_STORE).put(chat);
+    request.onsuccess = () => resolve(); request.onerror = () => reject(request.error);
   });
 }
 
@@ -2032,6 +2148,11 @@ function switchSettingsPage(page) {
 
 function fillSettingsForm() {
   const s = state.settings;
+  $("#supabaseUrl").value = s.supabaseUrl || "";
+  $("#supabaseAnonKey").value = s.supabaseAnonKey || "";
+  $("#supabaseEmail").value = supabaseSession()?.user?.email || "";
+  $("#supabasePassword").value = "";
+  updateSupabaseAuthStatus();
   $("#settingAppName").value = s.appName;
   $("#settingUserName").value = s.userName;
   $("#settingTheme").value = s.theme;
@@ -2074,7 +2195,9 @@ function readSettingsForm() {
     temperature: Number($("#settingTemperature").value),
     maxTokens: Math.max(64, Number($("#settingMaxTokens").value) || 4096),
     stream: $("#settingStream").checked,
-    vision: $("#settingVision").checked
+    vision: $("#settingVision").checked,
+    supabaseUrl: $("#supabaseUrl").value.trim().replace(/\/$/, ""),
+    supabaseAnonKey: $("#supabaseAnonKey").value.trim()
   };
 }
 
@@ -2605,6 +2728,7 @@ async function importDataFile(file) {
     }
 
     state.chats = await dbGetAllChats();
+    await loadSupabaseChats().catch(error => console.warn("Supabase sync skipped:", error.message));
     state.chats.sort((a,b) => b.updatedAt - a.updatedAt);
     state.activeChatId = state.chats[0]?.id || null;
     renderSidebar();
@@ -2719,6 +2843,9 @@ function bindEvents() {
   $("#cancelSettingsButton").addEventListener("click", closeSettings);
   $("#modalBackdrop").addEventListener("click", closeSettings);
   $("#saveSettingsButton").addEventListener("click", saveSettings);
+  $("#supabaseSignInButton").addEventListener("click", () => supabaseAuth("signin").catch(error => toast("เข้าสู่ระบบไม่สำเร็จ: " + error.message, "error")));
+  $("#supabaseSignUpButton").addEventListener("click", () => supabaseAuth("signup").catch(error => toast("สมัครไม่สำเร็จ: " + error.message, "error")));
+  $("#supabaseSignOutButton").addEventListener("click", () => supabaseSignOut().catch(error => toast(error.message, "error")));
   $("#testConnectionButton").addEventListener("click", testConnection);
 
   $$(".settings-tab").forEach(tab => {
