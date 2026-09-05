@@ -1239,6 +1239,7 @@ html[data-theme="dark"] .alert {
 .pin-key:active { background: #10a37f; transform: scale(.97); }
 .pin-key.pin-action { font-size: 14px; }
 
+.progress-track { height: 8px; margin: 8px 0 14px; overflow: hidden; border-radius: 99px; background: var(--border); }.progress-fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width .3s ease; }
 </style>
 </head>
 <body>
@@ -1553,6 +1554,12 @@ html[data-theme="dark"] .alert {
       <div class="form-row"><label for="agentTaskPrompt">คำสั่งงาน</label><textarea class="textarea-input" id="agentTaskPrompt" placeholder="เช่น อ่านระบบ Login แล้วแก้ให้ใช้งานได้ พร้อมรัน test"></textarea></div>
       <div class="button-row"><button class="primary-button" id="agentTaskButton">ส่งงานให้ Agent Runner</button></div>
       <div class="form-help">ต้องมี Agent Runner เปิดรอรับงานอยู่ใน Codespace หรือเครื่อง Runner</div>
+      <h3>Codespace Runner</h3>
+      <div class="form-help">เปิดเฉพาะตอนมีงาน และหยุดเมื่อไม่มีงาน เพื่อประหยัดโควตา</div>
+      <div class="form-row"><label for="codespaceName">ชื่อ Codespace</label><input class="text-input" id="codespaceName" placeholder="เช่น cautious-space-abc123"></div>
+      <div class="button-row"><button class="secondary-button" id="codespaceStatusButton">ตรวจสถานะ</button><button class="primary-button" id="codespaceStartButton">เปิด Runner</button><button class="secondary-button" id="codespaceStopButton">หยุด Runner</button></div>
+      <div id="codespaceProgress" class="form-help">ยังไม่ได้ตรวจสถานะ Codespace</div>
+      <div class="progress-track"><div id="codespaceProgressBar" class="progress-fill" style="width:0%"></div></div>
       <h3>GitHub Agent</h3>
       <div class="form-help">ต้อง Deploy Supabase Edge Function ชื่อ github-agent และตั้งค่า GITHUB_TOKEN ก่อนใช้งาน</div>
       <div class="form-row"><label for="githubOwner">เจ้าของรีโพสิทอรี</label><input class="text-input" id="githubOwner" value="apirak272543-ship-it"></div>
@@ -1821,6 +1828,16 @@ async function createAgentTask() {
   toast("ส่งงานเข้า Agent Queue แล้ว");
 }
 
+function renderCodespaceProgress(state, message) {
+  const labels={Unknown:"ไม่ทราบสถานะ",Created:"สร้างแล้ว",Queued:"กำลังเข้าคิว",Provisioning:"กำลังเตรียมเครื่อง",Starting:"กำลังเปิด Runner",Available:"พร้อมใช้งาน",ShuttingDown:"กำลังหยุด Runner",Shutdown:"หยุดแล้ว",Failed:"ผิดพลาด"};
+  const value={Available:100,Starting:65,Provisioning:35,Queued:15,ShuttingDown:60,Shutdown:0,Created:10}[state] ?? 5;
+  $("#codespaceProgress").textContent=(message||labels[state]||state||"ยังไม่มีสถานะ"); $("#codespaceProgressBar").style.width=value+"%";
+}
+async function codespaceAction(action) {
+  const name=$("#codespaceName").value.trim(); if(!name) throw new Error("กรุณาใส่ชื่อ Codespace");
+  renderCodespaceProgress(action==="codespace_start"?"Starting":"ShuttingDown", action==="codespace_start"?"10% กำลังส่งคำสั่งเปิด Terminal Runner":"กำลังส่งคำสั่งหยุด Runner");
+  const data=await githubAgent(action,{codespaceName:name}); const state=data.result?.state||"Unknown"; renderCodespaceProgress(state, `สถานะ Codespace: ${state}`); return data;
+}
 async function githubAgent(action, extra = {}) {
   if (!supabaseConfigured() || !supabaseSession()?.access_token) throw new Error("กรุณาตั้งค่า Supabase และเข้าสู่ระบบก่อน");
   const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/github-agent";
@@ -3051,6 +3068,9 @@ function bindEvents() {
   $("#loadSkillsButton").addEventListener("click",()=>loadSkills().catch(e=>toast(e.message,"error")));
   $("#skillsList").addEventListener("click",event=>{const id=event.target.closest(".skill-delete")?.dataset.skillId;if(id)deleteSkill(id).catch(e=>toast(e.message,"error"));});
   $("#agentTaskButton").addEventListener("click", () => createAgentTask().catch(e => toast(e.message, "error")));
+  $("#codespaceStatusButton").addEventListener("click",()=>githubAgent("codespace_status",{codespaceName:$("#codespaceName").value.trim()}).then(data=>renderCodespaceProgress(data.result?.state||"Unknown")).catch(e=>toast(e.message,"error")));
+  $("#codespaceStartButton").addEventListener("click",()=>codespaceAction("codespace_start").catch(e=>{renderCodespaceProgress("Failed",e.message);toast(e.message,"error");}));
+  $("#codespaceStopButton").addEventListener("click",()=>codespaceAction("codespace_stop").catch(e=>{renderCodespaceProgress("Failed",e.message);toast(e.message,"error");}));
   $("#githubListButton").addEventListener("click", () => githubAgent("list_files").catch(e => toast(e.message, "error")));
   $("#githubReadButton").addEventListener("click", async () => { try { const data = await githubAgent("read_file"); $("#githubContent").value = data.content || ""; } catch (e) { toast(e.message, "error"); } });
   $("#githubRunsButton").addEventListener("click", () => githubAgent("runs").catch(e => toast(e.message, "error")));

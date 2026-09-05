@@ -97,7 +97,21 @@ Deno.serve(async (request) => {
       return json({ ok: true, action, result });
     }
 
-    return json({ error: "Unsupported action", supported: ["read_file", "list_files", "search_code", "write_file", "run_workflow", "runs"] }, 400);
+    const codespaceName = String(body.codespaceName || "").trim();
+    if (["codespace_status", "codespace_start", "codespace_stop"].includes(action) && !codespaceName) {
+      throw new Error("codespaceName is required");
+    }
+    if (action === "codespace_status") {
+      const result = await gh(`/user/codespaces/${encodeURIComponent(codespaceName)}`);
+      return json({ ok: true, action, result });
+    }
+    if (action === "codespace_start" || action === "codespace_stop") {
+      const operation = action === "codespace_start" ? "start" : "stop";
+      const result = await gh(`/user/codespaces/${encodeURIComponent(codespaceName)}/${operation}`, { method: "POST" });
+      return json({ ok: true, action, result });
+    }
+
+    return json({ error: "Unsupported action", supported: ["read_file", "list_files", "search_code", "write_file", "run_workflow", "runs", "codespace_status", "codespace_start", "codespace_stop"] }, 400);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);
   }
