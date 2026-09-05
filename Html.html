@@ -1831,14 +1831,37 @@ async function githubAgent(action, extra = {}) {
   return data;
 }
 
+const DEFAULT_SKILLS = [
+{name:"ระบบวิเคราะห์และแก้บั๊ก",description:"ค้นหาสาเหตุของข้อผิดพลาดและแก้ไขอย่างเป็นระบบ",instructions:"อ่าน error และ stack trace ให้ครบ ค้นหาไฟล์ที่เกี่ยวข้อง แก้ที่สาเหตุไม่ใช่เฉพาะอาการ แก้ให้น้อยไฟล์ที่สุด รัน test ที่เกี่ยวข้อง และสรุปสาเหตุ ไฟล์ที่แก้ และผลการทดสอบ"},
+{name:"Code Review",description:"ตรวจสอบคุณภาพ ความถูกต้อง และความเสี่ยงของโค้ด",instructions:"ตรวจ logic ผิด โค้ดซ้ำ function ใหญ่ error handling race condition memory leak security issue และผลกระทบต่อฟีเจอร์เดิม รายงานปัญหาก่อนแก้เมื่อเหมาะสม"},
+{name:"Frontend Responsive Debugging",description:"แก้ UI ให้ทำงานบนมือถือ แท็บเล็ต และเดสก์ท็อป",instructions:"ตรวจ HTML component layout overflow spacing z-index modal input keyboard สี contrast และ focus state ทดสอบหน้าจอหลายขนาดและรัน build หลังแก้"},
+{name:"API Integration Debugging",description:"ตรวจสอบ API authentication request response CORS และ rate limit",instructions:"ตรวจ URL method headers token body content type CORS status response schema timeout retry และ rate limit ห้ามพิมพ์ API key หรือ token ลง log"},
+{name:"Supabase Database Specialist",description:"จัดการ schema query Authentication และ Row Level Security",instructions:"ตรวจ schema foreign key migration และ RLS ทุกครั้ง ตรวจ auth.uid กับ user_id ห้ามใช้ service_role ใน frontend และอธิบายผลกระทบของ SQL"},
+{name:"Automated Testing",description:"สร้างและซ่อม automated tests เพื่อป้องกันบั๊กซ้ำ",instructions:"อ่าน test framework ก่อน สร้าง test ที่ reproduce bug แก้ให้ผ่าน เพิ่ม happy path error และ edge case รัน test เฉพาะส่วนและทั้งระบบ พร้อมรายงานผล"},
+{name:"Build and Deployment Troubleshooter",description:"แก้ปัญหา build dependency environment และ deployment",instructions:"อ่าน config ตรวจ runtime dependency environment variable path case-sensitive assets แยก warning/error ห้ามใส่ secret ใน build และทดสอบ artifact"},
+{name:"Git Repository Workflow",description:"จัดการ branch diff commit และการเปลี่ยนแปลงใน repository",instructions:"ตรวจ git status และ branch ก่อนเริ่ม อ่านไฟล์ก่อนแก้ ตรวจ diff รัน test ใช้ commit message ชัดเจน หลีกเลี่ยง force push และรายงานไฟล์ที่เปลี่ยน"},
+{name:"Web Application Security",description:"ตรวจช่องโหว่ auth authorization secret และ input validation",instructions:"ตรวจ XSS SQL injection path traversal authorization CORS input validation error disclosure service_role ใน browser และ dependency vulnerabilities ห้ามเปิดเผย secret"},
+{name:"Technical Change Summary",description:"สรุปงานและผลการเปลี่ยนแปลงให้ผู้ใช้เข้าใจง่าย",instructions:"รายงานเป้าหมาย สาเหตุ ไฟล์ที่อ่านและแก้ การเปลี่ยนแปลง คำสั่ง test/build ผลลัพธ์ สิ่งที่ทำไม่ได้ และ commit hash หากมี"}
+];
+
+async function seedDefaultSkills() {
+  const session = supabaseSession();
+  if (!supabaseConfigured() || !session?.access_token || !session.user?.id) return;
+  const existing = await supabaseRequest("/rest/v1/skills?select=name");
+  const names = new Set((existing || []).map(item => item.name));
+  const missing = DEFAULT_SKILLS.filter(skill => !names.has(skill.name)).map(skill => ({...skill, user_id: session.user.id, enabled: true}));
+  if (missing.length) await supabaseRequest("/rest/v1/skills?on_conflict=user_id,name", {method: "POST", headers: {Prefer: "resolution=ignore-duplicates"}, body: JSON.stringify(missing)});
+}
+
 async function supabaseAnonymousLogin() {
   if (!supabaseConfigured()) return false;
   const existing = supabaseSession();
-  if (existing?.access_token) { updateSupabaseAuthStatus(); await loadSupabaseChats().catch(console.warn); return true; }
+  if (existing?.access_token) { updateSupabaseAuthStatus(); await seedDefaultSkills().catch(error => console.warn("Default skills skipped:", error.message)); await loadSupabaseChats().catch(console.warn); return true; }
   const data = await supabaseRequest("/auth/v1/signup", {method: "POST", body: JSON.stringify({})}, false);
   if (!data?.access_token) throw new Error("ต้องเปิด Anonymous Sign-Ins ใน Supabase Authentication ก่อน");
   localStorage.setItem("nova_supabase_session", JSON.stringify(data));
   updateSupabaseAuthStatus();
+  await seedDefaultSkills().catch(error => console.warn("Default skills skipped:", error.message));
   await loadSupabaseChats().catch(console.warn);
   return true;
 }
