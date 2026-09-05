@@ -1402,6 +1402,17 @@ html[data-theme="dark"] .alert {
         เว็บแบบ Static ไม่สามารถซ่อน API Key ได้ หากเผยแพร่บน GitHub Pages ควรใช้ API Proxy ฝั่งเซิร์ฟเวอร์ และไม่ควรบันทึก Secret Key ลงในไฟล์นี้
       </div>
       <div class="form-row">
+        <label for="providerPreset">ผู้ให้บริการ AI</label>
+        <select class="select-input" id="providerPreset">
+          <option value="google">Google Gemini</option>
+          <option value="openai">OpenAI</option>
+          <option value="groq">Groq</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="custom">กำหนดเอง</option>
+        </select>
+        <div class="form-help">เลือกผู้ให้บริการเพื่อเติม Endpoint และโมเดลตัวอย่างอัตโนมัติ จากนั้นตรวจสอบสิทธิ์และกดทดสอบการเชื่อมต่อ</div>
+      </div>
+      <div class="form-row">
         <label for="settingEndpoint">Chat Completions Endpoint</label>
         <input class="text-input" id="settingEndpoint" placeholder="https://api.openai.com/v1/chat/completions">
         <div class="form-help">ต้องเป็น API ที่รองรับรูปแบบ OpenAI Chat Completions และอนุญาต CORS หรือเป็น URL ของ Proxy ของคุณ</div>
@@ -1412,7 +1423,20 @@ html[data-theme="dark"] .alert {
       </div>
       <div class="form-row">
         <label for="settingModel">ชื่อโมเดล</label>
-        <input class="text-input" id="settingModel" placeholder="gpt-4.1-mini">
+        <input class="text-input" id="settingModel" list="modelCatalog" placeholder="gemini-3.6-flash">
+        <datalist id="modelCatalog">
+          <option value="gemini-3.8-flash">Google Gemini 3.8 Flash</option>
+          <option value="gemini-3.7-flash">Google Gemini 3.7 Flash</option>
+          <option value="gemini-3.6-flash">Google Gemini 3.6 Flash</option>
+          <option value="gemini-3.5-flash">Google Gemini 3.5 Flash</option>
+          <option value="gemini-3.5-flash-lite">Google Gemini 3.5 Flash-Lite</option>
+          <option value="gemini-2.5-flash">Google Gemini 2.5 Flash</option>
+          <option value="gpt-4.1-mini">OpenAI GPT-4.1 mini</option>
+          <option value="gpt-4o-mini">OpenAI GPT-4o mini</option>
+          <option value="gpt-4.1">OpenAI GPT-4.1</option>
+          <option value="llama-3.3-70b-versatile">Groq Llama 3.3 70B</option>
+          <option value="deepseek-chat">DeepSeek Chat</option>
+        </datalist>
       </div>
       <div class="form-row">
         <label for="settingHeaders">Custom headers แบบ JSON</label>
@@ -1537,16 +1561,35 @@ const DEFAULT_SETTINGS = {
   enterSend: true,
   endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
   apiKey: "",
-  model: "gemini-2.5-flash",
+  model: "gemini-3.6-flash",
   headers: "{}",
   systemPrompt: "You are a helpful, accurate, friendly AI assistant. Answer in the same language as the user unless the user requests otherwise.",
   temperature: 0.7,
   maxTokens: 4096,
   stream: true,
   vision: true,
+  provider: "google",
   supabaseUrl: "",
   supabaseAnonKey: ""
 };
+
+const PROVIDER_PRESETS = {
+  google: {endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-3.6-flash"},
+  openai: {endpoint: "https://api.openai.com/v1/chat/completions", model: "gpt-4.1-mini"},
+  groq: {endpoint: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile"},
+  deepseek: {endpoint: "https://api.deepseek.com/chat/completions", model: "deepseek-chat"}
+};
+
+function providerForSettings(settings) {
+  return Object.entries(PROVIDER_PRESETS).find(([, preset]) => preset.endpoint === settings.endpoint)?.[0] || "custom";
+}
+
+function applyProviderPreset(provider) {
+  const preset = PROVIDER_PRESETS[provider];
+  if (!preset) return;
+  $("#settingEndpoint").value = preset.endpoint;
+  $("#settingModel").value = preset.model;
+}
 
 const state = {
   settings: loadSettings(),
@@ -1573,7 +1616,9 @@ function uid(prefix = "id") {
 
 function loadSettings() {
   try {
-    return {...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("nova_settings") || "{}")};
+    const settings = {...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("nova_settings") || "{}")};
+    if (settings.model === "gemini-2.5-flash") settings.model = "gemini-3.6-flash";
+    return settings;
   } catch {
     return {...DEFAULT_SETTINGS};
   }
@@ -2158,6 +2203,7 @@ function fillSettingsForm() {
   $("#settingTheme").value = s.theme;
   $("#settingAccent").value = s.accent;
   $("#settingEnterSend").checked = s.enterSend;
+  $("#providerPreset").value = providerForSettings(s);
   $("#settingEndpoint").value = s.endpoint;
   $("#settingApiKey").value = s.apiKey;
   $("#settingModel").value = s.model;
@@ -2187,6 +2233,7 @@ function readSettingsForm() {
     theme: $("#settingTheme").value,
     accent: $("#settingAccent").value,
     enterSend: $("#settingEnterSend").checked,
+    provider: $("#providerPreset").value,
     endpoint: $("#settingEndpoint").value.trim(),
     apiKey: $("#settingApiKey").value.trim(),
     model: $("#settingModel").value.trim(),
@@ -2846,6 +2893,7 @@ function bindEvents() {
   $("#supabaseSignInButton").addEventListener("click", () => supabaseAuth("signin").catch(error => toast("เข้าสู่ระบบไม่สำเร็จ: " + error.message, "error")));
   $("#supabaseSignUpButton").addEventListener("click", () => supabaseAuth("signup").catch(error => toast("สมัครไม่สำเร็จ: " + error.message, "error")));
   $("#supabaseSignOutButton").addEventListener("click", () => supabaseSignOut().catch(error => toast(error.message, "error")));
+  $("#providerPreset").addEventListener("change", event => applyProviderPreset(event.target.value));
   $("#testConnectionButton").addEventListener("click", testConnection);
 
   $$(".settings-tab").forEach(tab => {
