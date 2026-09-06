@@ -1819,20 +1819,24 @@ async function loadSkills() {
 }
 async function deleteSkill(id) { await supabaseRequest("/rest/v1/skills?id=eq."+encodeURIComponent(id),{method:"DELETE"}); await loadSkills(); }
 
-async function createAgentTask() {
+function isCodingAgentRequest(text = "") {
+  return /(github|git hub|repo|repository|รีโพ|โค้ด|โค๊ด|ไฟล์|แก้ไข|แก้บั๊ก|แก้ปัญหา|commit|push|pull request|ทดสอบระบบ|รันคำสั่ง|อ่านโปรเจกต์|อ่านไฟล์|deploy)/i.test(text);
+}
+async function createAgentTask(promptOverride = null, titleOverride = null) {
   const session = supabaseSession();
   if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเข้าสู่ระบบ Supabase ก่อน");
-  const prompt = $("#agentTaskPrompt").value.trim();
+  const prompt = (promptOverride ?? $("#agentTaskPrompt").value).trim();
   if (!prompt) throw new Error("กรุณาใส่คำสั่งงาน");
   const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/github-agent";
   const response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify({
     owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main",
-    action: "enqueue_task", title: $("#agentTaskTitle").value.trim() || "งานใหม่", prompt
+    action: "enqueue_task", title: titleOverride || $("#agentTaskTitle").value.trim() || "งานใหม่", prompt
   })});
   const data = await response.json();
   if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
   $("#githubOutput").textContent = JSON.stringify(data, null, 2);
-  toast("ส่งงานแล้ว กำลังเริ่ม GitHub Actions ทันที");
+  toast("ส่งงานเข้า Agent แล้ว กำลังเริ่ม GitHub Actions ทันที");
+  return data.data || data;
 }
 
 function renderCodespaceProgress(state, message) {
@@ -2740,6 +2744,23 @@ async function editUserMessage(messageId) {
   await dbSaveChat(chat).catch(handleStorageError);
   renderSidebar();
   renderChat();
+  if (isCodingAgentRequest(text)) {
+    const agentMessage = {id: uid("msg"), role: "assistant", content: "กำลังส่งคำสั่งนี้ให้ NOVA Coding Agent เพื่ออ่าน/แก้ไขรีโพจริงครับ...", attachments: [], createdAt: Date.now(), status: "thinking"};
+    chat.messages.push(agentMessage);
+    renderChat();
+    try {
+      const task = await createAgentTask(text, "งานจากแชทหลัก");
+      agentMessage.content = `ส่งงานเข้า GitHub Agent สำเร็จแล้ว\n\nTask ID: ${task.task_id || "ไม่ระบุ"}\nสถานะ: queued\n\nAgent จะเลือกรีโพที่เหมาะสม อ่านไฟล์ แก้ไข ทดสอบ และ Commit/Push ตามคำสั่งของคุณ`;
+      agentMessage.status = "done";
+    } catch (error) {
+      agentMessage.content = "ส่งงานเข้า Coding Agent ไม่สำเร็จ: " + error.message;
+      agentMessage.status = "error";
+    }
+    chat.updatedAt = Date.now();
+    await dbSaveChat(chat).catch(handleStorageError);
+    renderChat();
+    return;
+  }
   await generateAssistantResponse(chat);
 }
 
