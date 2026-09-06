@@ -2591,7 +2591,34 @@ async function sendMessage() {
   await dbSaveChat(chat).catch(handleStorageError);
   renderSidebar();
   renderChat();
-
+  if (isCapabilityQuestion(text)) {
+    chat.messages.push({id: uid("msg"), role: "assistant", content: "กำลังตรวจ Supabase และ GitHub API จริง...", attachments: [], createdAt: Date.now(), status: "thinking"});
+    renderChat();
+    const capabilityMessage = chat.messages[chat.messages.length - 1];
+    capabilityMessage.content = await localCapabilityStatus();
+    capabilityMessage.status = "done";
+    chat.updatedAt = Date.now();
+    await dbSaveChat(chat).catch(handleStorageError);
+    renderChat();
+    return;
+  }
+  if (isCodingAgentRequest(text)) {
+    const agentMessage = {id: uid("msg"), role: "assistant", content: "กำลังส่งคำสั่งนี้ให้ NOVA Coding Agent เพื่ออ่าน/แก้ไขรีโพจริงครับ...", attachments: [], createdAt: Date.now(), status: "thinking"};
+    chat.messages.push(agentMessage);
+    renderChat();
+    try {
+      const task = await createAgentTask(text, "งานจากแชทหลัก");
+      agentMessage.content = `ส่งงานเข้า GitHub Agent สำเร็จแล้ว\n\nTask ID: ${task.task_id || "ไม่ระบุ"}\nสถานะ: queued\n\nAgent จะเลือกรีโพที่เหมาะสม อ่านไฟล์ แก้ไข ทดสอบ และ Commit/Push ตามคำสั่งของคุณ`;
+      agentMessage.status = "done";
+    } catch (error) {
+      agentMessage.content = "ส่งงานเข้า Coding Agent ไม่สำเร็จ: " + error.message;
+      agentMessage.status = "error";
+    }
+    chat.updatedAt = Date.now();
+    await dbSaveChat(chat).catch(handleStorageError);
+    renderChat();
+    return;
+  }
   await generateAssistantResponse(chat);
 }
 
@@ -2762,34 +2789,6 @@ async function editUserMessage(messageId) {
   await dbSaveChat(chat).catch(handleStorageError);
   renderSidebar();
   renderChat();
-  if (isCapabilityQuestion(text)) {
-    chat.messages.push({id: uid("msg"), role: "assistant", content: "กำลังตรวจ Supabase และ GitHub API จริง...", attachments: [], createdAt: Date.now(), status: "thinking"});
-    renderChat();
-    const capabilityMessage = chat.messages[chat.messages.length - 1];
-    capabilityMessage.content = await localCapabilityStatus();
-    capabilityMessage.status = "done";
-    chat.updatedAt = Date.now();
-    await dbSaveChat(chat).catch(handleStorageError);
-    renderChat();
-    return;
-  }
-  if (isCodingAgentRequest(text)) {
-    const agentMessage = {id: uid("msg"), role: "assistant", content: "กำลังส่งคำสั่งนี้ให้ NOVA Coding Agent เพื่ออ่าน/แก้ไขรีโพจริงครับ...", attachments: [], createdAt: Date.now(), status: "thinking"};
-    chat.messages.push(agentMessage);
-    renderChat();
-    try {
-      const task = await createAgentTask(text, "งานจากแชทหลัก");
-      agentMessage.content = `ส่งงานเข้า GitHub Agent สำเร็จแล้ว\n\nTask ID: ${task.task_id || "ไม่ระบุ"}\nสถานะ: queued\n\nAgent จะเลือกรีโพที่เหมาะสม อ่านไฟล์ แก้ไข ทดสอบ และ Commit/Push ตามคำสั่งของคุณ`;
-      agentMessage.status = "done";
-    } catch (error) {
-      agentMessage.content = "ส่งงานเข้า Coding Agent ไม่สำเร็จ: " + error.message;
-      agentMessage.status = "error";
-    }
-    chat.updatedAt = Date.now();
-    await dbSaveChat(chat).catch(handleStorageError);
-    renderChat();
-    return;
-  }
   await generateAssistantResponse(chat);
 }
 
