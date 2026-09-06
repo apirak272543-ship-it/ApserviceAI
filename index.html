@@ -1880,7 +1880,13 @@ async function seedDefaultSkills() {
 async function supabaseAnonymousLogin() {
   if (!supabaseConfigured()) return false;
   const existing = supabaseSession();
-  if (existing?.access_token) { updateSupabaseAuthStatus(); await seedDefaultSkills().catch(error => console.warn("Default skills skipped:", error.message)); await loadSupabaseChats().catch(console.warn); return true; }
+  if (existing?.access_token) {
+    if (existing.expires_at && existing.expires_at <= Math.floor(Date.now() / 1000) + 60 && existing.refresh_token) {
+      const refreshed = await supabaseRequest("/auth/v1/token?grant_type=refresh_token", {method: "POST", body: JSON.stringify({refresh_token: existing.refresh_token})}, false);
+      if (refreshed?.access_token) { localStorage.setItem("nova_supabase_session", JSON.stringify(refreshed)); }
+    }
+    updateSupabaseAuthStatus(); await seedDefaultSkills().catch(error => console.warn("Default skills skipped:", error.message)); await loadSupabaseChats().catch(console.warn); return true;
+  }
   const data = await supabaseRequest("/auth/v1/signup", {method: "POST", body: JSON.stringify({})}, false);
   if (!data?.access_token) throw new Error("ต้องเปิด Anonymous Sign-Ins ใน Supabase Authentication ก่อน");
   localStorage.setItem("nova_supabase_session", JSON.stringify(data));
