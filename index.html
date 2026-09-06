@@ -436,6 +436,35 @@ body.sidebar-collapsed #sidebar {
   overflow-wrap: anywhere;
   user-select: text;
 }
+.agent-workflow {
+  margin: 14px 0 4px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.agent-workflow-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.agent-workflow-title { font-weight: 750; font-size: 14px; }
+.agent-workflow-state { color: var(--muted); font-size: 12px; }
+.agent-workflow-bar { height: 5px; overflow: hidden; border-radius: 99px; background: var(--border); }
+.agent-workflow-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .45s ease; }
+.agent-workflow.running .agent-workflow-bar > span { animation: workflow-pulse 1.4s ease-in-out infinite; }
+.agent-workflow-steps { display: grid; gap: 7px; margin-top: 12px; }
+.agent-workflow-step { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
+.agent-workflow-step.done, .agent-workflow-step.current { color: var(--text); }
+.agent-workflow-dot { width: 18px; height: 18px; display: grid; place-items: center; flex: 0 0 18px; border: 1px solid var(--border); border-radius: 50%; font-size: 10px; }
+.agent-workflow-step.done .agent-workflow-dot { color: #fff; background: var(--accent); border-color: var(--accent); }
+.agent-workflow-step.current .agent-workflow-dot { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); animation: workflow-pulse 1.4s ease-in-out infinite; }
+.agent-workflow-events { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.agent-workflow-event { display: flex; gap: 7px; }
+.agent-workflow-event::before { content: "•"; color: var(--accent); }
+@keyframes workflow-pulse { 50% { opacity: .55; } }
 .message-content > :first-child {
   margin-top: 0;
 }
@@ -1856,6 +1885,56 @@ async function createAgentTask(promptOverride = null, titleOverride = null) {
   toast("ส่งงานเข้า Agent แล้ว กำลังเริ่ม GitHub Actions ทันที");
   return data.data || data;
 }
+function workflowToolLabel(name) {
+  const labels = {list_files: "กำลังอ่านรายการไฟล์", read_file: "กำลังอ่านไฟล์", search_code: "กำลังค้นหาโค้ด", write_file: "กำลังเขียนไฟล์", git: "กำลังตรวจสอบ Git", git_log: "กำลังอ่านประวัติ Git", run_tests: "กำลังรันทดสอบ", run_workflow: "กำลังเรียก Workflow"};
+  return labels[name] || `กำลังใช้เครื่องมือ ${name}`;
+}
+async function watchAgentWorkflow(chat, agentMessage, taskId) {
+  const workflow = agentMessage.workflow;
+  const started = Date.now();
+  const update = async (patch, save = true) => {
+    Object.assign(workflow, patch);
+    chat.updatedAt = Date.now();
+    if (save) await dbSaveChat(chat).catch(handleStorageError);
+    renderChat();
+  };
+  while (Date.now() - started < 45 * 60 * 1000) {
+    try {
+      const rows = await supabaseRequest(`/rest/v1/tasks?id=eq.${encodeURIComponent(taskId)}&select=status,result,error,started_at,completed_at`);
+      const task = rows?.[0];
+      if (!task) throw new Error("ยังอ่านสถานะ Task ไม่ได้");
+      let calls = [];
+      try { calls = await supabaseRequest(`/rest/v1/tool_calls?task_id=eq.${encodeURIComponent(taskId)}&select=tool_name,status&order=created_at.asc`); } catch {}
+      const events = ["งานถูกสร้างจากหน้าแชท", "Supabase ตอบรับและส่งงานเข้า GitHub Actions"];
+      if (task.status === "running") events.push("GitHub Actions เริ่ม Runner แล้ว");
+      (calls || []).forEach(call => events.push(`${workflowToolLabel(call.tool_name)} (${call.status})`));
+      if (task.status === "completed") events.push("Agent บันทึกผลลัพธ์กลับ Supabase แล้ว");
+      if (task.status === "failed") events.push(`Agent แจ้งข้อผิดพลาด: ${task.error || "ไม่ทราบสาเหตุ"}`);
+      const current = task.status === "queued" ? 1 : task.status === "running" ? (calls?.length ? Math.min(5, 3 + calls.length) : 2) : 6;
+      if (task.status === "completed") {
+        const result = task.result || {};
+        agentMessage.content = result.answer || result.summary || "Agent ทำงานเสร็จแล้ว แต่ไม่มีข้อความสรุปกลับมา";
+        agentMessage.status = "done";
+        await update({status: "completed", current: 6, events});
+        return;
+      }
+      if (task.status === "failed") {
+        agentMessage.content = `Agent ทำงานไม่สำเร็จ: ${task.error || "ไม่ทราบสาเหตุ"}`;
+        agentMessage.status = "error";
+        await update({status: "failed", current, events});
+        return;
+      }
+      await update({status: task.status, current, events});
+    } catch (error) {
+      workflow.events = [...(workflow.events || []), "กำลังรอข้อมูลสถานะจาก Supabase..."].slice(-5);
+      renderChat();
+    }
+    await new Promise(resolve => setTimeout(resolve, 4000));
+  }
+  agentMessage.content = "งานยังทำงานอยู่เบื้องหลัง กรุณากลับมาเปิดแชทนี้อีกครั้งเพื่อดูผลลัพธ์";
+  agentMessage.status = "done";
+  await update({status: "running", current: 3, events: [...(workflow.events || []), "งานยังทำงานอยู่เบื้องหลัง"]});
+}
 
 function renderCodespaceProgress(state, message) {
   const labels={Unknown:"ไม่ทราบสถานะ",Created:"สร้างแล้ว",Queued:"กำลังเข้าคิว",Provisioning:"กำลังเตรียมเครื่อง",Starting:"กำลังเปิด Runner",Available:"พร้อมใช้งาน",ShuttingDown:"กำลังหยุด Runner",Shutdown:"หยุดแล้ว",Failed:"ผิดพลาด"};
@@ -2249,6 +2328,34 @@ function messageActionButton(action, title, icon) {
   return `<button class="message-action" data-action="${action}" title="${title}">${icon}</button>`;
 }
 
+const AGENT_WORKFLOW_STEPS = [
+  "รับคำสั่งจาก NOVA",
+  "ส่งงานเข้า Supabase",
+  "เรียก GitHub Actions",
+  "Runner อ่าน Repository",
+  "ตรวจสอบและแก้ไขตามคำสั่ง",
+  "ทดสอบและบันทึกผล",
+  "ส่งผลลัพธ์กลับ NOVA"
+];
+function renderAgentWorkflow(workflow) {
+  const failed = workflow.status === "failed";
+  const current = failed ? Math.max(0, workflow.current - 1) : workflow.current;
+  const progress = failed ? Math.max(12, Math.round(((current + 1) / AGENT_WORKFLOW_STEPS.length) * 100)) : Math.round(((current + 1) / AGENT_WORKFLOW_STEPS.length) * 100);
+  const steps = AGENT_WORKFLOW_STEPS.map((label, index) => {
+    const cls = index < current || (workflow.status === "completed" && index <= current) ? "done" : index === current && workflow.status !== "completed" ? "current" : "";
+    const mark = index < current || (workflow.status === "completed" && index <= current) ? "✓" : String(index + 1);
+    return `<div class="agent-workflow-step ${cls}"><span class="agent-workflow-dot">${mark}</span><span>${escapeHtml(label)}</span></div>`;
+  }).join("");
+  const events = (workflow.events || []).slice(-5).map(event => `<div class="agent-workflow-event">${escapeHtml(event)}</div>`).join("");
+  const stateLabel = failed ? "งานล้มเหลว" : workflow.status === "completed" ? "เสร็จสิ้น" : `${progress}% กำลังทำงาน`;
+  return `<section class="agent-workflow ${workflow.status === "completed" || failed ? "" : "running"}">
+    <div class="agent-workflow-head"><span class="agent-workflow-title">Workflow ของ Coding Agent</span><span class="agent-workflow-state">${escapeHtml(stateLabel)}</span></div>
+    <div class="agent-workflow-bar"><span style="width:${progress}%"></span></div>
+    <div class="agent-workflow-steps">${steps}</div>
+    ${events ? `<div class="agent-workflow-events">${events}</div>` : ""}
+  </section>`;
+}
+
 function renderMessage(message) {
   const isUser = message.role === "user";
   const name = isUser ? state.settings.userName : state.settings.appName;
@@ -2264,6 +2371,7 @@ function renderMessage(message) {
   } else {
     contentHtml = renderMarkdown(message.content || "");
   }
+  const workflowHtml = message.workflow ? renderAgentWorkflow(message.workflow) : "";
 
   const actions = [
     messageActionButton("copy", "คัดลอก", ICONS.copy),
@@ -2279,6 +2387,7 @@ function renderMessage(message) {
         <div class="message-author">${escapeHtml(name)}</div>
         ${renderAttachmentsHtml(message.attachments)}
         <div class="message-content">${contentHtml}</div>
+        ${workflowHtml}
         <div class="message-actions ${message.status === "error" ? "always" : ""}">${actions}</div>
       </div>
     </article>`;
@@ -2603,13 +2712,21 @@ async function sendMessage() {
     return;
   }
   if (isCodingAgentRequest(text)) {
-    const agentMessage = {id: uid("msg"), role: "assistant", content: "กำลังส่งคำสั่งนี้ให้ NOVA Coding Agent เพื่ออ่าน/แก้ไขรีโพจริงครับ...", attachments: [], createdAt: Date.now(), status: "thinking"};
+    const agentMessage = {id: uid("msg"), role: "assistant", content: "กำลังส่งคำสั่งนี้ให้ NOVA Coding Agent เพื่ออ่าน/แก้ไขรีโพจริงครับ...", attachments: [], createdAt: Date.now(), status: "thinking", workflow: {status: "queued", current: 0, events: ["กำลังรับคำสั่งจากหน้าแชท..."]}};
     chat.messages.push(agentMessage);
     renderChat();
     try {
       const task = await createAgentTask(text, "งานจากแชทหลัก");
-      agentMessage.content = `ส่งงานเข้า GitHub Agent สำเร็จแล้ว\n\nTask ID: ${task.task_id || "ไม่ระบุ"}\nสถานะ: queued\n\nAgent จะเลือกรีโพที่เหมาะสม อ่านไฟล์ แก้ไข ทดสอบ และ Commit/Push ตามคำสั่งของคุณ`;
+      agentMessage.content = `ส่งงานเข้า GitHub Agent แล้ว\n\nTask ID: ${task.task_id || "ไม่ระบุ"}\n\nกำลังติดตามขั้นตอนการทำงานจาก Supabase และ GitHub Actions...`;
       agentMessage.status = "done";
+      agentMessage.workflow = {status: "queued", current: 1, events: ["รับคำสั่งจาก NOVA แล้ว", "Supabase ตอบรับและส่งงานเข้า GitHub Actions"]};
+      await dbSaveChat(chat).catch(handleStorageError);
+      renderChat();
+      watchAgentWorkflow(chat, agentMessage, task.task_id).catch(error => {
+        agentMessage.workflow = {...agentMessage.workflow, status: "failed", events: [...(agentMessage.workflow?.events || []), "ติดตามสถานะไม่ได้: " + error.message]};
+        renderChat();
+      });
+      return;
     } catch (error) {
       agentMessage.content = "ส่งงานเข้า Coding Agent ไม่สำเร็จ: " + error.message;
       agentMessage.status = "error";
