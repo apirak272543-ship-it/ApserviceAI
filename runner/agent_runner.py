@@ -224,11 +224,13 @@ def run_task(task: dict):
             if not message.tool_calls:
                 result = {"answer": message.content or "", "workspace": str(WORKSPACE)}
                 db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
+                print(f"Task {task_id} completed", flush=True)
                 stop_codespace_if_idle()
                 return
             for call in message.tool_calls:
                 args = json.loads(call.function.arguments or "{}")
                 started = time.time()
+                print(f"Calling tool: {call.function.name}", flush=True)
                 try:
                     output = call_tool(call.function.name, args)
                     status, error = "completed", None
