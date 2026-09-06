@@ -48,6 +48,33 @@ def list_repositories():
     return {"repositories": [{"full_name": r["full_name"], "description": r.get("description"), "language": r.get("language"), "default_branch": r.get("default_branch")} for r in repos]}
 
 
+def inspect_all_repositories():
+    """Read-only overview of every accessible repository for portfolio-level tasks."""
+    result = []
+    for repo in list_repositories()["repositories"]:
+        full_name = repo["full_name"]
+        try:
+            root = github_api(f"/repos/{full_name}/contents")
+            names = [item.get("name", "") for item in root if isinstance(item, dict)]
+            candidates = ["README.md", "package.json", "pyproject.toml", "requirements.txt", "Cargo.toml", "go.mod", "composer.json", "pom.xml"]
+            files = {}
+            for name in candidates:
+                if name not in names:
+                    continue
+                try:
+                    item = github_api(f"/repos/{full_name}/contents/{name}")
+                    if item.get("encoding") == "base64" and item.get("content"):
+                        import base64
+                        content = base64.b64decode(item["content"]).decode("utf-8", errors="replace")
+                        files[name] = content[:12000]
+                except Exception as exc:
+                    files[name] = f"[อ่านไม่ได้: {exc}]"
+            result.append({"full_name": full_name, "description": repo.get("description"), "language": repo.get("language"), "default_branch": repo.get("default_branch"), "root_entries": names[:120], "key_files": files})
+        except Exception as exc:
+            result.append({"full_name": full_name, "error": str(exc)})
+    return {"repository_count": len(result), "repositories": result}
+
+
 def select_repository(owner: str, repo: str, branch: str = "main", task_id: str = "workspace"):
     global WORKSPACE, TARGET_REPO, GIT_ASKPASS
     if not GITHUB_TOKEN or not owner or not repo:
@@ -138,6 +165,7 @@ def git_command(args: list[str]):
 
 TOOLS = [
     {"type": "function", "function": {"name": "list_repositories", "description": "List GitHub repositories the configured token can access. Use this when the task does not name a repository.", "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {"name": "inspect_all_repositories", "description": "Read-only: inspect the structure and key manifest files of every GitHub repository accessible to the configured token. Use this when the user asks for all repositories or a portfolio-wide summary. Do not edit or commit.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "select_repository", "description": "Clone and select the repository where this task should run. Do this before reading or editing project files.", "parameters": {"type": "object", "properties": {"owner": {"type": "string"}, "repo": {"type": "string"}, "branch": {"type": "string"}, "task_id": {"type": "string"}}, "required": ["owner", "repo"]}}},
     {"type": "function", "function": {"name": "read_file", "description": "Read a text file in the workspace", "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}},
     {"type": "function", "function": {"name": "write_file", "description": "Create or replace a text file in the workspace", "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}}},
@@ -153,6 +181,7 @@ TOOLS = [
 
 def call_tool(name: str, args: dict):
     if name == "list_repositories": return list_repositories()
+    if name == "inspect_all_repositories": return inspect_all_repositories()
     if name == "select_repository": return select_repository(args["owner"], args["repo"], args.get("branch", "main"), args.get("task_id", "workspace"))
     if name == "read_file": return read_file(args["path"])
     if name == "write_file": return write_file(args["path"], args["content"])
@@ -175,7 +204,7 @@ def run_task(task: dict):
     db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "running", "started_at": "now()"}, "")
     skill_rows = db("GET", "/rest/v1/skills", params=f"?user_id=eq.{task['user_id']}&enabled=eq.true&order=created_at.asc")
     skill_text = "\n\n".join(f"SKILL: {row['name']}\n{row.get('description','')}\n{row['instructions']}" for row in (skill_rows or []))
-    system_prompt = "You are an autonomous multi-repository coding agent. If the task names a repository, select it first. Otherwise list accessible repositories, infer the best match from the task, and select exactly one. Never edit the central runner repository unless it is explicitly selected. Inspect before editing, make requested changes, run relevant tests, and report the selected repository, changes, tests, and commit. Use tools when needed."
+    system_prompt = "You are an autonomous multi-repository coding agent. If the user asks about all repositories, call inspect_all_repositories exactly once and produce a complete read-only portfolio summary for every returned repository; do not select, edit, or commit any repository. If the task names one repository, select it first. Otherwise list accessible repositories, infer the best match, and select exactly one. Never edit the central runner repository unless it is explicitly selected. Inspect before editing, make requested changes, run relevant tests, and report the selected repository, changes, tests, and commit. Use tools when needed."
     if skill_text:
         system_prompt += "\n\nFollow these user skills when relevant:\n" + skill_text
     target_hint = ""
