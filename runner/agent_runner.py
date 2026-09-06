@@ -64,10 +64,10 @@ def db(method: str, path: str, payload: Any = None, params: str = ""):
 
 
 def checkpoint(task_id: str, user_id: str, label: str, detail: str = ""):
-    """Persist resumable progress as a system message without exposing secrets."""
-    payload = {"task_id": task_id, "user_id": user_id, "role": "system", "content": f"CHECKPOINT: {label}", "metadata": {"checkpoint": label, "detail": detail, "created_at": time.time()}}
+    """Persist operational progress in the deployed tool_calls table without exposing secrets."""
+    payload = {"task_id": task_id, "user_id": user_id, "tool_name": f"checkpoint:{label}", "arguments": {}, "result": {"detail": detail, "created_at": time.time()}, "status": "completed", "completed_at": "now()"}
     try:
-        db("POST", "/rest/v1/messages", payload)
+        db("POST", "/rest/v1/tool_calls", payload)
     except Exception as exc:
         print(f"Checkpoint write failed ({label}): {exc}", flush=True)
 

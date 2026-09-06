@@ -1911,6 +1911,10 @@ async function createAgentTask(promptOverride = null, titleOverride = null) {
 }
 function workflowToolLabel(name) {
   const labels = {list_files: "กำลังอ่านรายการไฟล์", read_file: "กำลังอ่านไฟล์", search_code: "กำลังค้นหาโค้ด", write_file: "กำลังเขียนไฟล์", git: "กำลังตรวจสอบ Git", git_log: "กำลังอ่านประวัติ Git", run_tests: "กำลังรันทดสอบ", run_workflow: "กำลังเรียก Workflow"};
+  if (String(name).startsWith("checkpoint:")) {
+    const checkpoints = {"task_started": "Runner รับงานแล้ว", "repository_discovery_started": "เริ่มค้นหา Repository", "inspection_completed": "อ่าน Repository เสร็จแล้ว", "verification_completed": "ตรวจสอบผลลัพธ์เสร็จแล้ว", "task_completed": "บันทึกผลลัพธ์แล้ว", "task_failed": "งานล้มเหลว"};
+    return checkpoints[String(name).slice(11)] || "อัปเดตความคืบหน้า Agent";
+  }
   return labels[name] || `กำลังใช้เครื่องมือ ${name}`;
 }
 async function watchAgentWorkflow(chat, agentMessage, taskId) {
