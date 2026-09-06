@@ -1821,6 +1821,22 @@ function supabaseHeaders(auth = true) {
     ...(auth && session?.access_token ? {Authorization: "Bearer " + session.access_token} : {})
   };
 }
+async function refreshSupabaseSession(force = false) {
+  const existing = supabaseSession();
+  if (!supabaseConfigured() || !existing?.refresh_token) return existing;
+  const expiresSoon = !existing.expires_at || existing.expires_at <= Math.floor(Date.now() / 1000) + 90;
+  if (!force && !expiresSoon) return existing;
+  try {
+    const refreshed = await supabaseRequest("/auth/v1/token?grant_type=refresh_token", {method: "POST", body: JSON.stringify({refresh_token: existing.refresh_token})}, false);
+    if (refreshed?.access_token) {
+      const next = {...existing, ...refreshed, user: refreshed.user || existing.user};
+      localStorage.setItem("nova_supabase_session", JSON.stringify(next));
+      updateSupabaseAuthStatus();
+      return next;
+    }
+  } catch (error) { console.warn("Supabase session refresh failed:", error.message); }
+  return existing;
+}
 
 async function supabaseRequest(path, options = {}, auth = true) {
   if (!supabaseConfigured()) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ anon key");
@@ -1870,15 +1886,17 @@ async function localCapabilityStatus() {
   return `## สถานะ NOVA Coding Agent\n\n- Supabase หน้าเว็บ: **${supabaseOk ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ/หมดอายุ ต้องเข้าสู่ระบบใหม่"}**\n- GitHub Agent: **${githubStatus}**\n${checks}\n- AI Chat ปกติ: **${endpointOk ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า Endpoint/Model"}**\n\nสถานะ GitHub ด้านบนมาจาก response จริงของ GitHub API ไม่ใช่คำตอบคาดเดาจากโมเดล หากต้องการแก้ไขไฟล์ ให้ส่งคำสั่งงาน ระบบจะแสดง Task ID หรือ error จริงจากการ dispatch`;
 }
 async function createAgentTask(promptOverride = null, titleOverride = null) {
-  const session = supabaseSession();
+  let session = await refreshSupabaseSession();
   if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเข้าสู่ระบบ Supabase ก่อน");
   const prompt = (promptOverride ?? $("#agentTaskPrompt").value).trim();
   if (!prompt) throw new Error("กรุณาใส่คำสั่งงาน");
   const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/github-agent";
-  const response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify({
-    owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main",
-    action: "enqueue_task", title: titleOverride || $("#agentTaskTitle").value.trim() || "งานใหม่", prompt
-  })});
+  const payload = {owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main", action: "enqueue_task", title: titleOverride || $("#agentTaskTitle").value.trim() || "งานใหม่", prompt};
+  let response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify(payload)});
+  if (response.status === 401) {
+    session = await refreshSupabaseSession(true);
+    response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify(payload)});
+  }
   const data = await response.json();
   if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
   $("#githubOutput").textContent = JSON.stringify(data, null, 2);
@@ -1947,9 +1965,15 @@ async function codespaceAction(action) {
   const data=await githubAgent(action,{codespaceName:name}); const state=data.result?.state||"Unknown"; renderCodespaceProgress(state, `สถานะ Codespace: ${state}`); return data;
 }
 async function githubAgent(action, extra = {}) {
-  if (!supabaseConfigured() || !supabaseSession()?.access_token) throw new Error("กรุณาตั้งค่า Supabase และเข้าสู่ระบบก่อน");
+  let session = await refreshSupabaseSession();
+  if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาตั้งค่า Supabase และเข้าสู่ระบบก่อน");
   const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/github-agent";
-  const response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + supabaseSession().access_token}, body: JSON.stringify({owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main", action, path: $("#githubPath").value.trim(), ...extra})});
+  const payload = {owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main", action, path: $("#githubPath").value.trim(), ...extra};
+  let response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify(payload)});
+  if (response.status === 401) {
+    session = await refreshSupabaseSession(true);
+    response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify(payload)});
+  }
   const data = await response.json();
   if (!response.ok || data.error) { const error = new Error(data.error || `HTTP ${response.status}`); error.code = data.code || data.details?.code; error.status = response.status; throw error; }
   $("#githubOutput").textContent = JSON.stringify(data, null, 2);
@@ -1982,10 +2006,7 @@ async function supabaseAnonymousLogin() {
   if (!supabaseConfigured()) return false;
   const existing = supabaseSession();
   if (existing?.access_token) {
-    if (existing.expires_at && existing.expires_at <= Math.floor(Date.now() / 1000) + 60 && existing.refresh_token) {
-      const refreshed = await supabaseRequest("/auth/v1/token?grant_type=refresh_token", {method: "POST", body: JSON.stringify({refresh_token: existing.refresh_token})}, false);
-      if (refreshed?.access_token) { localStorage.setItem("nova_supabase_session", JSON.stringify(refreshed)); }
-    }
+    await refreshSupabaseSession();
     updateSupabaseAuthStatus(); await seedDefaultSkills().catch(error => console.warn("Default skills skipped:", error.message)); await loadSupabaseChats().catch(console.warn); return true;
   }
   const data = await supabaseRequest("/auth/v1/signup", {method: "POST", body: JSON.stringify({})}, false);
@@ -2730,6 +2751,7 @@ async function sendMessage() {
     } catch (error) {
       agentMessage.content = "ส่งงานเข้า Coding Agent ไม่สำเร็จ: " + error.message;
       agentMessage.status = "error";
+      agentMessage.workflow = {...agentMessage.workflow, status: "failed", current: 0, events: [...(agentMessage.workflow?.events || []), "ส่งงานไม่สำเร็จ: " + error.message]};
     }
     chat.updatedAt = Date.now();
     await dbSaveChat(chat).catch(handleStorageError);
