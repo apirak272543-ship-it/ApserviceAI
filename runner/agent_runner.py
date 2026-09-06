@@ -139,7 +139,7 @@ def run_task(task: dict):
                     status, error = "completed", None
                 except Exception as exc:
                     output, status, error = {"error": str(exc)}, "failed", str(exc)
-                db("POST", "/rest/v1/tool_calls", {"task_id": task_id, "tool_name": call.function.name, "arguments": args, "result": output, "status": status, "error": error, "completed_at": "now()"})
+                db("POST", "/rest/v1/tool_calls", {"task_id": task_id, "user_id": task["user_id"], "tool_name": call.function.name, "arguments": args, "result": output, "status": status, "error": error, "completed_at": "now()"})
                 messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(output, ensure_ascii=False)})
         raise RuntimeError("agent reached tool-call limit")
     except Exception as exc:
@@ -149,6 +149,13 @@ def run_task(task: dict):
 
 def main():
     print(f"NOVA Agent Runner workspace={WORKSPACE} model={MODEL}", flush=True)
+    if os.environ.get("RUN_ONCE", "false").lower() == "true":
+        tasks = db("GET", "/rest/v1/tasks", params="?status=eq.queued&order=created_at.asc&limit=1")
+        if tasks:
+            run_task(tasks[0])
+        else:
+            print("No queued NOVA tasks", flush=True)
+        return
     while True:
         tasks = db("GET", "/rest/v1/tasks", params="?status=eq.queued&order=created_at.asc&limit=1")
         if tasks:
