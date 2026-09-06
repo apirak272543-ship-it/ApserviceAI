@@ -222,6 +222,7 @@ def run_task(task: dict):
                 assistant_message["tool_calls"] = [call.model_dump(exclude_none=True) for call in message.tool_calls]
             messages.append(assistant_message)
             if not message.tool_calls:
+                print(f"Agent final response: {(message.content or '')[:2000]}", flush=True)
                 result = {"answer": message.content or "", "workspace": str(WORKSPACE)}
                 db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
                 print(f"Task {task_id} completed", flush=True)
@@ -248,6 +249,7 @@ def main():
     print(f"NOVA Agent Runner workspace={WORKSPACE} model={MODEL}", flush=True)
     if os.environ.get("RUN_ONCE", "false").lower() == "true":
         tasks = db("GET", "/rest/v1/tasks", params="?status=eq.queued&order=created_at.asc&limit=1")
+        print(f"Queued tasks found: {len(tasks or [])}", flush=True)
         if tasks:
             run_task(tasks[0])
         else:
