@@ -11,7 +11,7 @@ from openai import OpenAI
 
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 WORKSPACE = Path(os.environ.get("WORKSPACE", ".")).resolve()
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "3"))
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
@@ -26,7 +26,34 @@ headers = {
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
     "Content-Type": "application/json",
 }
-client = OpenAI(api_key=GEMINI_API_KEY, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+MODEL_CANDIDATES = [m.strip() for m in os.environ.get("GEMINI_MODELS", "gemini-3.6-flash,gemini-3.8-flash,gemini-2.5-flash,gemini-2.0-flash").split(",") if m.strip()]
+
+
+def llm_chat(messages, tools=None, tool_choice=None, temperature=0.1):
+    """Try configured providers/models in order; switch automatically on quota/API errors."""
+    providers = []
+    if GEMINI_API_KEY:
+        providers.extend(("gemini", model, GEMINI_API_KEY, "https://generativelanguage.googleapis.com/v1beta/openai/") for model in MODEL_CANDIDATES)
+    optional = [
+        ("openai", os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), os.environ.get("OPENAI_API_KEY"), os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")),
+        ("groq", os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile"), os.environ.get("GROQ_API_KEY"), "https://api.groq.com/openai/v1"),
+        ("deepseek", os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"), os.environ.get("DEEPSEEK_API_KEY"), "https://api.deepseek.com/v1"),
+    ]
+    providers.extend(item for item in optional if item[2])
+    errors = []
+    for provider, model, key, base_url in providers:
+        try:
+            print(f"Trying model: {provider}/{model}", flush=True)
+            current = OpenAI(api_key=key, base_url=base_url)
+            kwargs = {"model": model, "messages": messages, "temperature": temperature}
+            if tools is not None:
+                kwargs["tools"] = tools
+                kwargs["tool_choice"] = tool_choice or "auto"
+            return current.chat.completions.create(**kwargs)
+        except Exception as exc:
+            errors.append(f"{provider}/{model}: {exc}")
+            print(f"Model failed, switching automatically: {provider}/{model}", flush=True)
+    raise RuntimeError("All configured AI models/providers failed: " + " | ".join(errors[-4:]))
 
 
 def db(method: str, path: str, payload: Any = None, params: str = ""):
@@ -230,7 +257,7 @@ def run_task(task: dict):
             print("Portfolio mode: inspecting all accessible repositories", flush=True)
             overview = inspect_all_repositories()
             portfolio_prompt = "สรุปข้อมูลโครงสร้างรีโพทั้งหมดด้านล่างเป็นภาษาไทยให้ครบทุกรีโพ โดยทำตารางชื่อรีโพ ภาษา/เทคโนโลยี ไฟล์สำคัญ โครงสร้างระดับบน จุดประสงค์ และข้อสังเกต ห้ามแต่งข้อมูลที่ไม่มีในหลักฐาน และยืนยันจำนวนรีโพที่วิเคราะห์\n\n" + json.dumps(overview, ensure_ascii=False)
-            response = client.chat.completions.create(model=MODEL, messages=[{"role": "system", "content": "คุณเป็นนักวิเคราะห์ซอฟต์แวร์ สรุปจากข้อมูลที่ให้เท่านั้น ห้ามแก้ไขรีโพ"}, {"role": "user", "content": portfolio_prompt}], temperature=0.1)
+            response = llm_chat([{"role": "system", "content": "คุณเป็นนักวิเคราะห์ซอฟต์แวร์ สรุปจากข้อมูลที่ให้เท่านั้น ห้ามแก้ไขรีโพ"}, {"role": "user", "content": portfolio_prompt}], temperature=0.1)
             answer = response.choices[0].message.content or ""
             result = {"answer": answer, "repository_count": overview.get("repository_count", 0), "repositories": [r.get("full_name") for r in overview.get("repositories", [])]}
             db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
@@ -250,7 +277,7 @@ def run_task(task: dict):
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": task["prompt"] + target_hint}]
     try:
         for _ in range(24):
-            response = client.chat.completions.create(model=MODEL, messages=messages, tools=TOOLS, tool_choice="auto", temperature=0.1)
+            response = llm_chat(messages, tools=TOOLS, tool_choice="auto", temperature=0.1)
             message = response.choices[0].message
             assistant_message = {"role": "assistant"}
             if message.content is not None:

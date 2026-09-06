@@ -46,9 +46,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
           WORKSPACE: ${{ github.workspace }}
           RUN_ONCE: 'true'
           GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_MODELS: gemini-3.6-flash,gemini-3.8-flash,gemini-2.5-flash,gemini-2.0-flash
         run: python runner/agent_runner.py
