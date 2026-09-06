@@ -1822,6 +1822,15 @@ async function deleteSkill(id) { await supabaseRequest("/rest/v1/skills?id=eq."+
 function isCodingAgentRequest(text = "") {
   return /(github|githup|git hub|repo|repository|รีโพ|โค้ด|โค๊ด|ไฟล์|แก้ไข|แก้บั๊ก|แก้ปัญหา|commit|push|pull request|ทดสอบระบบ|รันคำสั่ง|อ่านโปรเจกต์|อ่านไฟล์|deploy|supabase|supabas|database|ฐานข้อมูล|เชื่อมต่อฐานข้อมูล|ทดสอบการเชื่อมต่อ)/i.test(text);
 }
+function isCapabilityQuestion(text = "") {
+  return /(พร้อมทำงาน|พร้อมใช้งาน|เชื่อมต่อได้หรือยัง|เชื่อมต่อแล้วหรือยัง|เข้าถึงได้ไหม|เข้าถึงไฟล์|ทำอะไรได้บ้าง.*(github|githup|รีโพ|ไฟล์)|สถานะการเชื่อมต่อ)/i.test(text);
+}
+function localCapabilityStatus() {
+  const session = supabaseSession();
+  const supabaseOk = Boolean(supabaseConfigured() && session?.access_token);
+  const endpointOk = Boolean(state.settings.endpoint && state.settings.model);
+  return `## สถานะ NOVA Coding Agent\n\n- Supabase หน้าเว็บ: **${supabaseOk ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ/หมดอายุ ต้องเข้าสู่ระบบใหม่"}**\n- GitHub Agent: **พร้อมรับงานผ่าน Supabase Edge Function**\n- GitHub Actions: **จะเริ่มทำงานทันทีเมื่อส่งงาน**\n- AI Chat ปกติ: **${endpointOk ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า Endpoint/Model"}**\n\nคำสั่งเกี่ยวกับ GitHub, รีโพ, ไฟล์, โค้ด, Supabase หรือฐานข้อมูล จะถูกส่งเข้า Coding Agent อัตโนมัติจากช่องแชทนี้ครับ\n\nหมายเหตุ: ข้อความเก่าในห้องแชทเป็นคำตอบก่อนแก้ระบบ ให้สร้างข้อความใหม่หรือเปิดห้องแชทใหม่เพื่อทดสอบรุ่นล่าสุด`;
+}
 async function createAgentTask(promptOverride = null, titleOverride = null) {
   const session = supabaseSession();
   if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเข้าสู่ระบบ Supabase ก่อน");
@@ -2744,6 +2753,13 @@ async function editUserMessage(messageId) {
   await dbSaveChat(chat).catch(handleStorageError);
   renderSidebar();
   renderChat();
+  if (isCapabilityQuestion(text)) {
+    chat.messages.push({id: uid("msg"), role: "assistant", content: localCapabilityStatus(), attachments: [], createdAt: Date.now(), status: "done"});
+    chat.updatedAt = Date.now();
+    await dbSaveChat(chat).catch(handleStorageError);
+    renderChat();
+    return;
+  }
   if (isCodingAgentRequest(text)) {
     const agentMessage = {id: uid("msg"), role: "assistant", content: "กำลังส่งคำสั่งนี้ให้ NOVA Coding Agent เพื่ออ่าน/แก้ไขรีโพจริงครับ...", attachments: [], createdAt: Date.now(), status: "thinking"};
     chat.messages.push(agentMessage);
