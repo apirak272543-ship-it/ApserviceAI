@@ -1865,7 +1865,8 @@ async function loadSkills() {
 async function deleteSkill(id) { await supabaseRequest("/rest/v1/skills?id=eq."+encodeURIComponent(id),{method:"DELETE"}); await loadSkills(); }
 
 function isCodingAgentRequest(text = "") {
-  return /(github|githup|git hub|repo|repository|รีโพ|โค้ด|โค๊ด|ไฟล์|แก้ไข|แก้บั๊ก|แก้ปัญหา|commit|push|pull request|ทดสอบระบบ|รันคำสั่ง|อ่านโปรเจกต์|อ่านไฟล์|deploy|supabase|supabas|database|ฐานข้อมูล|เชื่อมต่อฐานข้อมูล|ทดสอบการเชื่อมต่อ)/i.test(text);
+  const value = String(text).toLowerCase().replace(/[ํ่้๊๋์]/g, "");
+  return /(github|githup|git hub|repo|repository|รีโพ|รีโพธ|ลีโพ|โพธ|โครงการ|โปรเจกต์|โค้ด|โค๊ด|ไฟล์|แก้ไข|แก้บั๊ก|แก้ปัญหา|commit|push|pull request|ทดสอบระบบ|รันคำสั่ง|อ่านโปรเจกต์|อ่านไฟล์|อ่าน.*(ทุก|ทั้งหมด).*(รี|ลี|repo|โครงการ|โปรเจกต์)|ทุก.*(รี|ลี).*(โพ|repo)|deploy|supabase|supabas|database|ฐานข้อมูล|เชื่อมต่อฐานข้อมูล|ทดสอบการเชื่อมต่อ)/i.test(value);
 }
 function isCapabilityQuestion(text = "") {
   return /(พร้อมทำงาน|พร้อมใช้งาน|เชื่อมต่อ.*(github|githup|git|กิต|กิท|ฮับ|รีโพ|supabase|ฐานข้อมูล)|เข้าถึงได้ไหม|เข้าถึงไฟล์|ทำอะไรได้บ้าง.*(github|githup|รีโพ|ไฟล์|กิต|กิท)|สถานะการเชื่อมต่อ|เชื่อมต่อได้หรือยัง|เชื่อมต่อแล้วหรือยัง)/i.test(text);
