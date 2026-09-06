@@ -1820,7 +1820,7 @@ async function loadSkills() {
 async function deleteSkill(id) { await supabaseRequest("/rest/v1/skills?id=eq."+encodeURIComponent(id),{method:"DELETE"}); await loadSkills(); }
 
 function isCodingAgentRequest(text = "") {
-  return /(github|git hub|repo|repository|รีโพ|โค้ด|โค๊ด|ไฟล์|แก้ไข|แก้บั๊ก|แก้ปัญหา|commit|push|pull request|ทดสอบระบบ|รันคำสั่ง|อ่านโปรเจกต์|อ่านไฟล์|deploy)/i.test(text);
+  return /(github|githup|git hub|repo|repository|รีโพ|โค้ด|โค๊ด|ไฟล์|แก้ไข|แก้บั๊ก|แก้ปัญหา|commit|push|pull request|ทดสอบระบบ|รันคำสั่ง|อ่านโปรเจกต์|อ่านไฟล์|deploy|supabase|supabas|database|ฐานข้อมูล|เชื่อมต่อฐานข้อมูล|ทดสอบการเชื่อมต่อ)/i.test(text);
 }
 async function createAgentTask(promptOverride = null, titleOverride = null) {
   const session = supabaseSession();
