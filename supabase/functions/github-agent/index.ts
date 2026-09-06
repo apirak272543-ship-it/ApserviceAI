@@ -59,9 +59,10 @@ Deno.serve(async (request) => {
     const repo = String(body.repo || "").trim();
     const action = String(body.action || "");
     const branch = String(body.branch || "main").trim();
-    if (!/^[\w.-]+$/.test(owner) || !/^[\w.-]+$/.test(repo)) throw new Error("Invalid owner or repo");
+    const isEnqueue = action === "enqueue_task";
+    if ((owner && !/^[\w.-]+$/.test(owner)) || (repo && !/^[\w.-]+$/.test(repo))) throw new Error("Invalid owner or repo");
 
-    if (action === "enqueue_task") {
+    if (isEnqueue) {
       const prompt = String(body.prompt || "").trim();
       const title = String(body.title || "งานใหม่").trim().slice(0, 160) || "งานใหม่";
       if (!prompt) throw new Error("prompt is required");
@@ -75,7 +76,9 @@ Deno.serve(async (request) => {
         status: "queued",
       }).select("id").single();
       if (insertError || !task) throw new Error(insertError?.message || "Could not create task");
-      await gh(`/repos/${owner}/${repo}/dispatches`, {
+      const dispatchOwner = Deno.env.get("AGENT_REPO_OWNER") || "apirak272543-ship-it";
+      const dispatchRepo = Deno.env.get("AGENT_REPO_NAME") || "ApserviceAI";
+      await gh(`/repos/${dispatchOwner}/${dispatchRepo}/dispatches`, {
         method: "POST",
         body: JSON.stringify({ event_type: "nova_task", client_payload: { task_id: task.id } }),
       });
