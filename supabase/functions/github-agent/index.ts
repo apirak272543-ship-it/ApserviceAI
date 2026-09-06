@@ -35,6 +35,11 @@ const cleanPath = (value: string) => {
   return path;
 };
 
+const admin = () => createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -55,6 +60,27 @@ Deno.serve(async (request) => {
     const action = String(body.action || "");
     const branch = String(body.branch || "main").trim();
     if (!/^[\w.-]+$/.test(owner) || !/^[\w.-]+$/.test(repo)) throw new Error("Invalid owner or repo");
+
+    if (action === "enqueue_task") {
+      const prompt = String(body.prompt || "").trim();
+      const title = String(body.title || "งานใหม่").trim().slice(0, 160) || "งานใหม่";
+      if (!prompt) throw new Error("prompt is required");
+      const { data: task, error: insertError } = await admin().from("tasks").insert({
+        user_id: user.id,
+        title,
+        prompt,
+        repo_owner: owner,
+        repo_name: repo,
+        repo_branch: branch,
+        status: "queued",
+      }).select("id").single();
+      if (insertError || !task) throw new Error(insertError?.message || "Could not create task");
+      await gh(`/repos/${owner}/${repo}/dispatches`, {
+        method: "POST",
+        body: JSON.stringify({ event_type: "nova_task", client_payload: { task_id: task.id } }),
+      });
+      return json({ ok: true, action, task_id: task.id, dispatched: true });
+    }
 
     if (action === "read_file") {
       const result = await gh(`/repos/${owner}/${repo}/contents/${cleanPath(body.path)}?ref=${encodeURIComponent(branch)}`) as { content?: string; encoding?: string; path?: string; sha?: string };
@@ -111,7 +137,7 @@ Deno.serve(async (request) => {
       return json({ ok: true, action, result });
     }
 
-    return json({ error: "Unsupported action", supported: ["read_file", "list_files", "search_code", "write_file", "run_workflow", "runs", "codespace_status", "codespace_start", "codespace_stop"] }, 400);
+    return json({ error: "Unsupported action", supported: ["enqueue_task", "read_file", "list_files", "search_code", "write_file", "run_workflow", "runs", "codespace_status", "codespace_start", "codespace_stop"] }, 400);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);
   }

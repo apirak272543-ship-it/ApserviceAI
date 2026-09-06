@@ -1824,9 +1824,15 @@ async function createAgentTask() {
   if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเข้าสู่ระบบ Supabase ก่อน");
   const prompt = $("#agentTaskPrompt").value.trim();
   if (!prompt) throw new Error("กรุณาใส่คำสั่งงาน");
-  const response = await supabaseRequest("/rest/v1/tasks", {method: "POST", headers: {Prefer: "return=representation"}, body: JSON.stringify({user_id: session.user.id, title: $("#agentTaskTitle").value.trim() || "งานใหม่", prompt, repo_owner: $("#githubOwner").value.trim(), repo_name: $("#githubRepo").value.trim(), repo_branch: $("#githubBranch").value.trim() || "main", status: "queued"})});
-  $("#githubOutput").textContent = JSON.stringify(response, null, 2);
-  toast("ส่งงานเข้า Agent Queue แล้ว");
+  const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/github-agent";
+  const response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify({
+    owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main",
+    action: "enqueue_task", title: $("#agentTaskTitle").value.trim() || "งานใหม่", prompt
+  })});
+  const data = await response.json();
+  if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+  $("#githubOutput").textContent = JSON.stringify(data, null, 2);
+  toast("ส่งงานแล้ว กำลังเริ่ม GitHub Actions ทันที");
 }
 
 function renderCodespaceProgress(state, message) {
