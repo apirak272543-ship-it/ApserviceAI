@@ -62,6 +62,15 @@ def db(method: str, path: str, payload: Any = None, params: str = ""):
     return response.json() if response.text else None
 
 
+def checkpoint(task_id: str, user_id: str, label: str, detail: str = ""):
+    """Persist resumable progress as a system message without exposing secrets."""
+    payload = {"task_id": task_id, "user_id": user_id, "role": "system", "content": f"CHECKPOINT: {label}", "metadata": {"checkpoint": label, "detail": detail, "created_at": time.time()}}
+    try:
+        db("POST", "/rest/v1/messages", payload)
+    except Exception as exc:
+        print(f"Checkpoint write failed ({label}): {exc}", flush=True)
+
+
 def github_api(path: str):
     response = requests.get(f"https://api.github.com{path}", headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {GITHUB_TOKEN}", "X-GitHub-Api-Version": "2022-11-28"}, timeout=30)
     response.raise_for_status()
@@ -204,6 +213,10 @@ def git_command(args: list[str]):
     return {"args": args, "exit_code": result.returncode, "stdout": result.stdout[-30000:], "stderr": result.stderr[-30000:]}
 
 
+def git_log(limit: int = 20):
+    return git_command(["log", f"-{max(1, min(int(limit), 100))}", "--oneline", "--decorate"])
+
+
 TOOLS = [
     {"type": "function", "function": {"name": "list_repositories", "description": "List GitHub repositories the configured token can access. Use this when the task does not name a repository.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "inspect_all_repositories", "description": "Read-only: inspect the structure and key manifest files of every GitHub repository accessible to the configured token. Use this when the user asks for all repositories or a portfolio-wide summary. Do not edit or commit.", "parameters": {"type": "object", "properties": {}}}},
@@ -215,6 +228,7 @@ TOOLS = [
     {"type": "function", "function": {"name": "run_command", "description": "Run a shell command in the workspace", "parameters": {"type": "object", "properties": {"command": {"type": "string"}, "timeout": {"type": "integer"}}, "required": ["command"]}}},
     {"type": "function", "function": {"name": "git_status", "description": "Show git status", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "git_diff", "description": "Show git diff", "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {"name": "git_log", "description": "Show recent git history", "parameters": {"type": "object", "properties": {"limit": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "git_commit", "description": "Commit current changes", "parameters": {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"]}}},
     {"type": "function", "function": {"name": "git_push", "description": "Push current branch to origin", "parameters": {"type": "object", "properties": {}}}},
 ]
@@ -231,6 +245,7 @@ def call_tool(name: str, args: dict):
     if name == "run_command": return run_command(args["command"], args.get("timeout", 120))
     if name == "git_status": return git_command(["status", "--short"])
     if name == "git_diff": return git_command(["diff"])
+    if name == "git_log": return git_log(args.get("limit", 20))
     if name == "git_commit":
         added = git_command(["add", "-A"])
         if added["exit_code"] != 0:
@@ -243,6 +258,7 @@ def call_tool(name: str, args: dict):
 def run_task(task: dict):
     task_id = task["id"]
     db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "running", "started_at": "now()"}, "")
+    checkpoint(task_id, task["user_id"], "task_started", "Runner accepted queued task")
     skill_rows = db("GET", "/rest/v1/skills", params=f"?user_id=eq.{task['user_id']}&enabled=eq.true&order=created_at.asc")
     skill_text = "\n\n".join(f"SKILL: {row['name']}\n{row.get('description','')}\n{row['instructions']}" for row in (skill_rows or []))
     system_prompt = "You are an autonomous multi-repository coding agent. If the user asks about all repositories, call inspect_all_repositories exactly once and produce a complete read-only portfolio summary for every returned repository; do not select, edit, or commit any repository. If the task names one repository, select it first. Otherwise list accessible repositories, infer the best match, and select exactly one. Never edit the central runner repository unless it is explicitly selected. Inspect before editing, make requested changes, run relevant tests, and report the selected repository, changes, tests, and commit. Use tools when needed."
@@ -255,12 +271,15 @@ def run_task(task: dict):
     if portfolio_mode:
         try:
             print("Portfolio mode: inspecting all accessible repositories", flush=True)
+            checkpoint(task_id, task["user_id"], "repository_discovery_started", "Portfolio discovery started")
             overview = inspect_all_repositories()
+            checkpoint(task_id, task["user_id"], "inspection_completed", f"Inspected {overview.get('repository_count', 0)} repositories")
             portfolio_prompt = "สรุปข้อมูลโครงสร้างรีโพทั้งหมดด้านล่างเป็นภาษาไทยให้ครบทุกรีโพ โดยทำตารางชื่อรีโพ ภาษา/เทคโนโลยี ไฟล์สำคัญ โครงสร้างระดับบน จุดประสงค์ และข้อสังเกต ห้ามแต่งข้อมูลที่ไม่มีในหลักฐาน และยืนยันจำนวนรีโพที่วิเคราะห์\n\n" + json.dumps(overview, ensure_ascii=False)
             response = llm_chat([{"role": "system", "content": "คุณเป็นนักวิเคราะห์ซอฟต์แวร์ สรุปจากข้อมูลที่ให้เท่านั้น ห้ามแก้ไขรีโพ"}, {"role": "user", "content": portfolio_prompt}], temperature=0.1)
             answer = response.choices[0].message.content or ""
             result = {"answer": answer, "repository_count": overview.get("repository_count", 0), "repositories": [r.get("full_name") for r in overview.get("repositories", [])]}
             db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
+            checkpoint(task_id, task["user_id"], "task_completed", "Portfolio result saved")
             print(f"Portfolio task {task_id} completed for {result['repository_count']} repositories", flush=True)
             stop_codespace_if_idle()
             return
@@ -268,9 +287,11 @@ def run_task(task: dict):
             if '429' in str(exc) and 'overview' in locals():
                 result = {"answer": format_portfolio_fallback(overview), "repository_count": overview.get("repository_count", 0), "repositories": [r.get("full_name") for r in overview.get("repositories", [])], "note": "สร้างสรุปอัตโนมัติเนื่องจากโควตา Gemini เต็ม"}
                 db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
+                checkpoint(task_id, task["user_id"], "task_completed", "Portfolio fallback result saved")
                 print(f"Portfolio fallback completed for {result['repository_count']} repositories", flush=True)
             else:
                 db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "failed", "error": str(exc), "completed_at": "now()"})
+                checkpoint(task_id, task["user_id"], "task_failed", str(exc))
                 print(f"Portfolio task failed: {exc}", flush=True)
             stop_codespace_if_idle()
             return
@@ -288,7 +309,9 @@ def run_task(task: dict):
             if not message.tool_calls:
                 print(f"Agent final response: {(message.content or '')[:2000]}", flush=True)
                 result = {"answer": message.content or "", "workspace": str(WORKSPACE)}
+                checkpoint(task_id, task["user_id"], "verification_completed", "Agent returned final report after tool loop")
                 db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
+                checkpoint(task_id, task["user_id"], "task_completed", "Final result saved")
                 print(f"Task {task_id} completed", flush=True)
                 stop_codespace_if_idle()
                 return
@@ -302,10 +325,13 @@ def run_task(task: dict):
                 except Exception as exc:
                     output, status, error = {"error": str(exc)}, "failed", str(exc)
                 db("POST", "/rest/v1/tool_calls", {"task_id": task_id, "user_id": task["user_id"], "tool_name": call.function.name, "arguments": args, "result": output, "status": status, "error": error, "completed_at": "now()"})
+                if status == "failed":
+                    checkpoint(task_id, task["user_id"], "tool_failed", f"{call.function.name}: {error}")
                 messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(output, ensure_ascii=False)})
         raise RuntimeError("agent reached tool-call limit")
     except Exception as exc:
         db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "failed", "error": str(exc), "completed_at": "now()"})
+        checkpoint(task_id, task["user_id"], "task_failed", str(exc))
         stop_codespace_if_idle()
 
 

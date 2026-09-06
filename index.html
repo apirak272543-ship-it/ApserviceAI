@@ -1825,11 +1825,20 @@ function isCodingAgentRequest(text = "") {
 function isCapabilityQuestion(text = "") {
   return /(พร้อมทำงาน|พร้อมใช้งาน|เชื่อมต่อ.*(github|githup|git|กิต|กิท|ฮับ|รีโพ|supabase|ฐานข้อมูล)|เข้าถึงได้ไหม|เข้าถึงไฟล์|ทำอะไรได้บ้าง.*(github|githup|รีโพ|ไฟล์|กิต|กิท)|สถานะการเชื่อมต่อ|เชื่อมต่อได้หรือยัง|เชื่อมต่อแล้วหรือยัง)/i.test(text);
 }
-function localCapabilityStatus() {
+async function localCapabilityStatus() {
   const session = supabaseSession();
   const supabaseOk = Boolean(supabaseConfigured() && session?.access_token);
   const endpointOk = Boolean(state.settings.endpoint && state.settings.model);
-  return `## สถานะ NOVA Coding Agent\n\n- Supabase หน้าเว็บ: **${supabaseOk ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ/หมดอายุ ต้องเข้าสู่ระบบใหม่"}**\n- การตั้งค่า GitHub Agent: **${supabaseOk ? "พร้อมส่งคำสั่งทดสอบ" : "ยังตรวจสอบไม่ได้ เพราะยังไม่มี Supabase session"}**\n- GitHub Actions: **จะยืนยันว่าเชื่อมต่อสำเร็จเมื่อส่งงานแล้วได้ Task ID**\n- AI Chat ปกติ: **${endpointOk ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า Endpoint/Model"}**\n\nหมายเหตุสำคัญ: โมเดล AI ไม่ใช่ผู้ตรวจสอบสิทธิ์ GitHub และจะไม่ถูกใช้ตอบสถานะนี้อีก หากต้องการยืนยันการเข้าถึงไฟล์จริง ให้ส่งคำสั่งอ่านหรือวิเคราะห์ repo ระบบจะแสดงผลสำเร็จหรือข้อผิดพลาดจาก GitHub Agent โดยตรง`;
+  let githubStatus = "ยังตรวจสอบไม่ได้";
+  let checks = "";
+  if (supabaseOk) {
+    try {
+      const result = await githubAgent("github_connection_test");
+      githubStatus = result.data?.ok ? "เชื่อมต่อและตรวจสอบ GitHub สำเร็จ" : "เชื่อมต่อได้แต่มีขั้นตอนที่ไม่ผ่าน";
+      checks = (result.data?.checks || []).map(check => `- ${check.name}: **${check.status}**${check.login ? ` (${check.login})` : ""}`).join("\\n");
+    } catch (error) { githubStatus = "ตรวจสอบ GitHub ไม่สำเร็จ: " + error.message; }
+  }
+  return `## สถานะ NOVA Coding Agent\n\n- Supabase หน้าเว็บ: **${supabaseOk ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ/หมดอายุ ต้องเข้าสู่ระบบใหม่"}**\n- GitHub Agent: **${githubStatus}**\n${checks}\n- AI Chat ปกติ: **${endpointOk ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า Endpoint/Model"}**\n\nสถานะ GitHub ด้านบนมาจาก response จริงของ GitHub API ไม่ใช่คำตอบคาดเดาจากโมเดล หากต้องการแก้ไขไฟล์ ให้ส่งคำสั่งงาน ระบบจะแสดง Task ID หรือ error จริงจากการ dispatch`;
 }
 async function createAgentTask(promptOverride = null, titleOverride = null) {
   const session = supabaseSession();
@@ -1863,7 +1872,7 @@ async function githubAgent(action, extra = {}) {
   const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/github-agent";
   const response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + supabaseSession().access_token}, body: JSON.stringify({owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main", action, path: $("#githubPath").value.trim(), ...extra})});
   const data = await response.json();
-  if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+  if (!response.ok || data.error) { const error = new Error(data.error || `HTTP ${response.status}`); error.code = data.code || data.details?.code; error.status = response.status; throw error; }
   $("#githubOutput").textContent = JSON.stringify(data, null, 2);
   return data;
 }
@@ -2754,7 +2763,11 @@ async function editUserMessage(messageId) {
   renderSidebar();
   renderChat();
   if (isCapabilityQuestion(text)) {
-    chat.messages.push({id: uid("msg"), role: "assistant", content: localCapabilityStatus(), attachments: [], createdAt: Date.now(), status: "done"});
+    chat.messages.push({id: uid("msg"), role: "assistant", content: "กำลังตรวจ Supabase และ GitHub API จริง...", attachments: [], createdAt: Date.now(), status: "thinking"});
+    renderChat();
+    const capabilityMessage = chat.messages[chat.messages.length - 1];
+    capabilityMessage.content = await localCapabilityStatus();
+    capabilityMessage.status = "done";
     chat.updatedAt = Date.now();
     await dbSaveChat(chat).catch(handleStorageError);
     renderChat();
