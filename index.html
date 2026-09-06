@@ -1840,10 +1840,15 @@ async function refreshSupabaseSession(force = false) {
 
 async function supabaseRequest(path, options = {}, auth = true) {
   if (!supabaseConfigured()) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ anon key");
-  const response = await fetch(state.settings.supabaseUrl.replace(/\/$/, "") + path, {
+  const request = () => fetch(state.settings.supabaseUrl.replace(/\/$/, "") + path, {
     ...options,
     headers: {...supabaseHeaders(auth), ...(options.headers || {})}
   });
+  let response = await request();
+  if (response.status === 401 && auth && supabaseSession()?.refresh_token) {
+    await refreshSupabaseSession(true);
+    response = await request();
+  }
   const text = await response.text();
   let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
   if (!response.ok) throw new Error(data?.msg || data?.message || data?.error_description || text || `HTTP ${response.status}`);
