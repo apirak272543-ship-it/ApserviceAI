@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -267,7 +268,12 @@ def run_task(task: dict):
     target_hint = ""
     if task.get("repo_owner") and task.get("repo_name"):
         target_hint = f"\nRepository requested by the task: {task['repo_owner']}/{task['repo_name']} (branch {task.get('repo_branch') or 'main'}). Select it before inspecting files."
-    portfolio_mode = any(marker in task["prompt"].lower() for marker in ("ทั้งหมด", "ทุกรีโพ", "all repositories", "inspect_all_repositories"))
+    prompt_lower = task["prompt"].lower()
+    portfolio_mode = (
+        any(marker in prompt_lower for marker in ("all repositories", "inspect_all_repositories"))
+        or bool(re.search(r"(?:อ่าน|ตรวจ|สรุป|วิเคราะห์).*(?:ทุก|ทั้งหมด).*(?:รี|ลี|repo|โพ)", prompt_lower))
+        or bool(re.search(r"(?:ทุก|ทั้งหมด).*(?:รี|ลี).*(?:โพ|repo)", prompt_lower))
+    )
     if portfolio_mode:
         try:
             print("Portfolio mode: inspecting all accessible repositories", flush=True)
