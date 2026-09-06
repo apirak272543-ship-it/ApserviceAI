@@ -75,6 +75,20 @@ def inspect_all_repositories():
     return {"repository_count": len(result), "repositories": result}
 
 
+def format_portfolio_fallback(overview: dict) -> str:
+    lines = [f"สรุปโครงสร้างรีโพทั้งหมดที่ตรวจพบ: {overview.get('repository_count', 0)} รีโพ", "", "| รีโพ | ภาษา/เทคโนโลยี | ไฟล์สำคัญ | โครงสร้างระดับบน | จุดประสงค์/ข้อสังเกต |", "|---|---|---|---|---|"]
+    for repo in overview.get("repositories", []):
+        name = repo.get("full_name", "ไม่ทราบชื่อ")
+        language = repo.get("language") or "ไม่ระบุ"
+        key_files = ", ".join(repo.get("key_files", {}).keys()) or "ไม่พบ manifest ที่รู้จัก"
+        entries = ", ".join(repo.get("root_entries", [])[:20]) or "อ่านรายการไม่ได้"
+        readme = repo.get("key_files", {}).get("README.md", "").replace("\n", " ")[:240]
+        note = readme or repo.get("description") or "ไม่มีคำอธิบายจากรีโพ"
+        lines.append(f"| {name} | {language} | {key_files} | {entries} | {note} |")
+    lines.extend(["", "หมายเหตุ: รายงานนี้เป็นการสรุปจากรายการไฟล์ระดับบนและไฟล์ manifest/README ที่อ่านได้แบบอ่านอย่างเดียว ไม่มีการแก้ไขหรือลบไฟล์"])
+    return "\n".join(lines)
+
+
 def select_repository(owner: str, repo: str, branch: str = "main", task_id: str = "workspace"):
     global WORKSPACE, TARGET_REPO, GIT_ASKPASS
     if not GITHUB_TOKEN or not owner or not repo:
@@ -224,8 +238,13 @@ def run_task(task: dict):
             stop_codespace_if_idle()
             return
         except Exception as exc:
-            db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "failed", "error": str(exc), "completed_at": "now()"})
-            print(f"Portfolio task failed: {exc}", flush=True)
+            if '429' in str(exc) and 'overview' in locals():
+                result = {"answer": format_portfolio_fallback(overview), "repository_count": overview.get("repository_count", 0), "repositories": [r.get("full_name") for r in overview.get("repositories", [])], "note": "สร้างสรุปอัตโนมัติเนื่องจากโควตา Gemini เต็ม"}
+                db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
+                print(f"Portfolio fallback completed for {result['repository_count']} repositories", flush=True)
+            else:
+                db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "failed", "error": str(exc), "completed_at": "now()"})
+                print(f"Portfolio task failed: {exc}", flush=True)
             stop_codespace_if_idle()
             return
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": task["prompt"] + target_hint}]
