@@ -1,147 +1,47 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withSupabase } from "npm:@supabase/server";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
-
-const gh = async (path: string, init: RequestInit = {}) => {
-  const token = Deno.env.get("GITHUB_TOKEN");
-  if (!token) throw new Error("GITHUB_TOKEN is not configured in Supabase secrets");
-  const response = await fetch(`https://api.github.com${path}`, {
-    ...init,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "Content-Type": "application/json",
-      ...(init.headers || {}),
-    },
-  });
-  const text = await response.text();
-  let data: unknown;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-  if (!response.ok) throw new Error(`GitHub ${response.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
+const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const API = "https://api.github.com";
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json" };
+class AgentError extends Error { constructor(message: string, public status = 400) { super(message); } }
+const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: CORS });
+const req = (v: unknown, name: string) => { if (typeof v !== "string" || !v.trim()) throw new AgentError(`${name} is required`); return v.trim(); };
+const optional = (v: unknown) => typeof v === "string" && v.trim() ? v.trim() : undefined;
+async function gh(path: string, method = "GET", body?: unknown) {
+  if (!GITHUB_TOKEN) throw new AgentError("GITHUB_TOKEN is not configured", 500);
+  const r = await fetch(`${API}${path}`, { method, headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${GITHUB_TOKEN}`, "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "NOVA-github-agent", ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await r.text(); let data: any = null; try { data = text ? JSON.parse(text) : null; } catch {}
+  if (!r.ok) throw new AgentError(data?.message || `GitHub request failed (${r.status})`, r.status >= 500 ? 502 : r.status);
   return data;
-};
-
-const cleanPath = (value: string) => {
-  const path = String(value || "").replace(/^\/+/, "");
-  if (!path || path.includes("..")) throw new Error("Invalid repository path");
-  return path;
-};
-
-const admin = () => createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-);
-
-Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
-  try {
-    const auth = request.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) return json({ error: "Authentication required" }, 401);
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: auth } } },
-    );
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) return json({ error: "Invalid Supabase session" }, 401);
-
-    const body = await request.json();
-    const owner = String(body.owner || "").trim();
-    const repo = String(body.repo || "").trim();
-    const action = String(body.action || "");
-    const branch = String(body.branch || "main").trim();
-    const isEnqueue = action === "enqueue_task";
-    if ((owner && !/^[\w.-]+$/.test(owner)) || (repo && !/^[\w.-]+$/.test(repo))) throw new Error("Invalid owner or repo");
-
-    if (isEnqueue) {
-      const prompt = String(body.prompt || "").trim();
-      const title = String(body.title || "งานใหม่").trim().slice(0, 160) || "งานใหม่";
-      if (!prompt) throw new Error("prompt is required");
-      const { data: task, error: insertError } = await admin().from("tasks").insert({
-        user_id: user.id,
-        title,
-        prompt,
-        repo_owner: owner,
-        repo_name: repo,
-        repo_branch: branch,
-        status: "queued",
-      }).select("id").single();
-      if (insertError || !task) throw new Error(insertError?.message || "Could not create task");
-      const dispatchOwner = Deno.env.get("AGENT_REPO_OWNER") || "apirak272543-ship-it";
-      const dispatchRepo = Deno.env.get("AGENT_REPO_NAME") || "ApserviceAI";
-      await gh(`/repos/${dispatchOwner}/${dispatchRepo}/dispatches`, {
-        method: "POST",
-        body: JSON.stringify({ event_type: "nova_task", client_payload: { task_id: task.id } }),
-      });
-      return json({ ok: true, action, task_id: task.id, dispatched: true });
-    }
-
-    if (action === "read_file") {
-      const result = await gh(`/repos/${owner}/${repo}/contents/${cleanPath(body.path)}?ref=${encodeURIComponent(branch)}`) as { content?: string; encoding?: string; path?: string; sha?: string };
-      const content = result.encoding === "base64" && result.content ? atob(result.content.replaceAll("\n", "")) : result.content || "";
-      return json({ ok: true, action, path: result.path, sha: result.sha, content });
-    }
-
-    if (action === "list_files") {
-      const result = await gh(`/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`) as { tree?: Array<{ path: string; type: string; size?: number }> };
-      return json({ ok: true, action, files: (result.tree || []).filter(item => item.type === "blob") });
-    }
-
-    if (action === "search_code") {
-      const query = encodeURIComponent(`${String(body.query || "")} repo:${owner}/${repo}`);
-      const result = await gh(`/search/code?q=${query}`);
-      return json({ ok: true, action, result });
-    }
-
-    if (action === "write_file") {
-      const path = cleanPath(body.path);
-      const content = String(body.content ?? "");
-      const message = String(body.message || `Update ${path}`);
-      const existing = await gh(`/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`).catch(() => null) as { sha?: string } | null;
-      const payload = { message, content: btoa(unescape(encodeURIComponent(content))), branch, ...(existing?.sha ? { sha: existing.sha } : {}) };
-      const result = await gh(`/repos/${owner}/${repo}/contents/${path}`, { method: "PUT", body: JSON.stringify(payload) });
-      return json({ ok: true, action, result });
-    }
-
-    if (action === "run_workflow") {
-      const workflow = cleanPath(body.workflow);
-      await gh(`/repos/${owner}/${repo}/actions/workflows/${workflow}/dispatches`, {
-        method: "POST",
-        body: JSON.stringify({ ref: branch, inputs: body.inputs || {} }),
-      });
-      return json({ ok: true, action, message: "Workflow dispatched" });
-    }
-
-    if (action === "runs") {
-      const result = await gh(`/repos/${owner}/${repo}/actions/runs?per_page=10`);
-      return json({ ok: true, action, result });
-    }
-
-    const codespaceName = String(body.codespaceName || "").trim();
-    if (["codespace_status", "codespace_start", "codespace_stop"].includes(action) && !codespaceName) {
-      throw new Error("codespaceName is required");
-    }
-    if (action === "codespace_status") {
-      const result = await gh(`/user/codespaces/${encodeURIComponent(codespaceName)}`);
-      return json({ ok: true, action, result });
-    }
-    if (action === "codespace_start" || action === "codespace_stop") {
-      const operation = action === "codespace_start" ? "start" : "stop";
-      const result = await gh(`/user/codespaces/${encodeURIComponent(codespaceName)}/${operation}`, { method: "POST" });
-      return json({ ok: true, action, result });
-    }
-
-    return json({ error: "Unsupported action", supported: ["enqueue_task", "read_file", "list_files", "search_code", "write_file", "run_workflow", "runs", "codespace_status", "codespace_start", "codespace_stop"] }, 400);
-  } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+}
+const admin = () => { if (!SERVICE_KEY) throw new AgentError("SUPABASE_SERVICE_ROLE_KEY is not configured", 500); return createClient(SUPABASE_URL, SERVICE_KEY); };
+async function action(b: Record<string, unknown>, userId: string) {
+  const a = req(b.action, "action");
+  if (a === "enqueue_task") {
+    const prompt = req(b.prompt, "prompt");
+    const owner = optional(b.owner), repo = optional(b.repo), branch = optional(b.branch) || "main";
+    if (owner && !/^[\w.-]+$/.test(owner) || repo && !/^[\w.-]+$/.test(repo)) throw new AgentError("Invalid owner or repo");
+    const { data: task, error } = await admin().from("tasks").insert({ user_id: userId, title: String(b.title || "งานใหม่").slice(0, 160), prompt, repo_owner: owner || null, repo_name: repo || null, repo_branch: branch, status: "queued" }).select("id").single();
+    if (error || !task) throw new AgentError(error?.message || "Could not create task", 500);
+    const dispatchOwner = Deno.env.get("AGENT_REPO_OWNER") || "apirak272543-ship-it";
+    const dispatchRepo = Deno.env.get("AGENT_REPO_NAME") || "ApserviceAI";
+    await gh(`/repos/${dispatchOwner}/${dispatchRepo}/dispatches`, "POST", { event_type: "nova_task", client_payload: { task_id: task.id } });
+    return { ok: true, action: a, task_id: task.id, dispatched: true };
   }
+  const owner = req(b.owner, "owner"), repo = req(b.repo, "repo"), base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  if (a === "read_file") { const path = req(b.path, "path"); return await gh(`${base}/contents/${path.split("/").map(encodeURIComponent).join("/")}${optional(b.branch) ? `?ref=${encodeURIComponent(String(b.branch))}` : ""}`); }
+  if (a === "list_files") return await gh(`${base}/git/trees/${encodeURIComponent(optional(b.branch) || "main")}?recursive=1`);
+  if (a === "runs") return await gh(`${base}/actions/runs?per_page=10`);
+  if (a === "run_workflow") { await gh(`${base}/actions/workflows/${encodeURIComponent(req(b.workflow, "workflow"))}/dispatches`, "POST", { ref: req(b.branch, "branch"), inputs: b.inputs || {} }); return { dispatched: true }; }
+  throw new AgentError(`Unsupported action: ${a}`);
+}
+const authenticated = withSupabase({ auth: "user" }, async (request: Request) => {
+  if (request.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  try { const body = await request.json(); const auth = request.headers.get("Authorization") || ""; const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } }); const { data: { user } } = await userClient.auth.getUser(); if (!user) throw new AgentError("Authenticated user is required", 401); return json({ data: await action(body, user.id) }); }
+  catch (e) { const status = e instanceof AgentError ? e.status : 500; return json({ error: e instanceof Error ? e.message : String(e) }, status); }
 });
+Deno.serve((request: Request) => request.method === "OPTIONS" ? Promise.resolve(new Response("ok", { headers: CORS })) : authenticated(request));
