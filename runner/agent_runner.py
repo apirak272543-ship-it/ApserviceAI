@@ -125,7 +125,12 @@ def run_task(task: dict):
         for _ in range(24):
             response = client.chat.completions.create(model=MODEL, messages=messages, tools=TOOLS, tool_choice="auto", temperature=0.1)
             message = response.choices[0].message
-            messages.append(message.model_dump())
+            assistant_message = {"role": "assistant"}
+            if message.content is not None:
+                assistant_message["content"] = message.content
+            if message.tool_calls:
+                assistant_message["tool_calls"] = [call.model_dump(exclude_none=True) for call in message.tool_calls]
+            messages.append(assistant_message)
             if not message.tool_calls:
                 result = {"answer": message.content or "", "workspace": str(WORKSPACE)}
                 db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
