@@ -210,6 +210,24 @@ def run_task(task: dict):
     target_hint = ""
     if task.get("repo_owner") and task.get("repo_name"):
         target_hint = f"\nRepository requested by the task: {task['repo_owner']}/{task['repo_name']} (branch {task.get('repo_branch') or 'main'}). Select it before inspecting files."
+    portfolio_mode = any(marker in task["prompt"].lower() for marker in ("ทั้งหมด", "ทุกรีโพ", "all repositories", "inspect_all_repositories"))
+    if portfolio_mode:
+        try:
+            print("Portfolio mode: inspecting all accessible repositories", flush=True)
+            overview = inspect_all_repositories()
+            portfolio_prompt = "สรุปข้อมูลโครงสร้างรีโพทั้งหมดด้านล่างเป็นภาษาไทยให้ครบทุกรีโพ โดยทำตารางชื่อรีโพ ภาษา/เทคโนโลยี ไฟล์สำคัญ โครงสร้างระดับบน จุดประสงค์ และข้อสังเกต ห้ามแต่งข้อมูลที่ไม่มีในหลักฐาน และยืนยันจำนวนรีโพที่วิเคราะห์\n\n" + json.dumps(overview, ensure_ascii=False)
+            response = client.chat.completions.create(model=MODEL, messages=[{"role": "system", "content": "คุณเป็นนักวิเคราะห์ซอฟต์แวร์ สรุปจากข้อมูลที่ให้เท่านั้น ห้ามแก้ไขรีโพ"}, {"role": "user", "content": portfolio_prompt}], temperature=0.1)
+            answer = response.choices[0].message.content or ""
+            result = {"answer": answer, "repository_count": overview.get("repository_count", 0), "repositories": [r.get("full_name") for r in overview.get("repositories", [])]}
+            db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "completed", "result": result, "completed_at": "now()"})
+            print(f"Portfolio task {task_id} completed for {result['repository_count']} repositories", flush=True)
+            stop_codespace_if_idle()
+            return
+        except Exception as exc:
+            db("PATCH", f"/rest/v1/tasks?id=eq.{task_id}", {"status": "failed", "error": str(exc), "completed_at": "now()"})
+            print(f"Portfolio task failed: {exc}", flush=True)
+            stop_codespace_if_idle()
+            return
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": task["prompt"] + target_hint}]
     try:
         for _ in range(24):
