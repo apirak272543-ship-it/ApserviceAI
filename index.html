@@ -945,6 +945,9 @@ html[data-theme="dark"] #sendButton {
   text-align: left;
   font-size: 13px;
 }
+.social-connection-card { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); }
+.content-preview { min-height:120px; margin:10px 0 14px; padding:16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); white-space:pre-wrap; line-height:1.55; }
+.social-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0; padding:10px; border:1px solid var(--border); border-radius:10px; }
 .settings-tab:hover,
 .settings-tab.active {
   background: var(--surface-3);
@@ -1427,6 +1430,7 @@ html[data-theme="dark"] .alert {
     <nav class="settings-nav">
       <button class="settings-tab active" data-page="general">ทั่วไป</button>
       <button class="settings-tab" data-page="connection">การเชื่อมต่อ AI</button>
+      <button class="settings-tab" data-page="social">โซเชียลและคอนเทนต์</button>
       <button class="settings-tab" data-page="behavior">พฤติกรรมโมเดล</button>
       <button class="settings-tab" data-page="data">ข้อมูล</button>
     </nav>
@@ -1515,6 +1519,21 @@ html[data-theme="dark"] .alert {
       <div class="button-row">
         <button class="secondary-button" id="testConnectionButton">ทดสอบการเชื่อมต่อ</button>
       </div>
+    </div>
+
+    <div class="settings-page" data-page="social">
+      <h3>Social Connections</h3>
+      <div class="alert">เชื่อมต่อเฉพาะบัญชีที่คุณเป็นเจ้าของหรือมีสิทธิ์จัดการเท่านั้น ระบบรุ่นนี้ยังไม่โพสต์จริง จะเก็บเป็น Draft และแสดง Preview ก่อน</div>
+      <div class="form-row"><div class="social-connection-card"><div><strong>Facebook Page</strong><div class="form-help">ต้องใช้ Meta App และสิทธิ์จัดการ Page</div></div><button class="primary-button" id="connectFacebookButton">เชื่อมต่อ Facebook</button></div></div>
+      <div class="form-row"><div class="social-connection-card"><div><strong>TikTok</strong><div class="form-help">ต้องเปิด Content Posting API และขอสิทธิ์ video.publish</div></div><button class="primary-button" id="connectTiktokButton">เชื่อมต่อ TikTok</button></div></div>
+      <div id="socialConnectionsList" class="form-help">ยังไม่ได้โหลดการเชื่อมต่อ</div>
+      <h3>สร้าง Content Draft</h3>
+      <div class="form-row"><label for="draftTitle">หัวข้อ</label><input class="text-input" id="draftTitle" maxlength="120" placeholder="เช่น โปรโมชันประจำสัปดาห์"></div>
+      <div class="form-row"><label for="draftBody">ข้อความโพสต์</label><textarea class="textarea-input" id="draftBody" maxlength="5000" placeholder="เขียนข้อความที่ต้องการให้ AI ช่วยปรับหรือเตรียมไว้สำหรับ Preview"></textarea></div>
+      <div class="form-row"><label>แพลตฟอร์มเป้าหมาย</label><div class="button-row"><label><input type="checkbox" class="draft-platform" value="facebook"> Facebook Page</label><label><input type="checkbox" class="draft-platform" value="tiktok"> TikTok</label></div></div>
+      <div class="content-preview" id="contentPreview"><div class="form-help">Preview จะแสดงที่นี่</div></div>
+      <div class="button-row"><button class="secondary-button" id="refreshPreviewButton">อัปเดต Preview</button><button class="primary-button" id="saveDraftButton">บันทึก Draft</button></div>
+      <div id="draftStatus" class="form-help"></div>
     </div>
 
     <div class="settings-page" data-page="behavior">
@@ -1853,6 +1872,48 @@ async function supabaseRequest(path, options = {}, auth = true) {
   let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
   if (!response.ok) throw new Error(data?.msg || data?.message || data?.error_description || text || `HTTP ${response.status}`);
   return data;
+}
+
+async function socialFunctionUrl(action = "list", provider = "") {
+  const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/social-oauth";
+  return `${base}?action=${encodeURIComponent(action)}${provider ? `&provider=${encodeURIComponent(provider)}` : ""}`;
+}
+async function socialFunction(action = "list", provider = "", extra = "") {
+  const session = await refreshSupabaseSession();
+  if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเชื่อมต่อ Supabase ก่อน");
+  const response = await fetch(socialFunctionUrl(action, provider) + extra, {headers: {apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}});
+  const data = await response.json();
+  if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+async function connectSocial(provider) {
+  const data = await socialFunction("start", provider);
+  if (!data.auth_url) throw new Error("ไม่ได้รับ OAuth URL");
+  location.href = data.auth_url;
+}
+async function loadSocialConnections() {
+  const box = $("#socialConnectionsList");
+  if (!box) return;
+  try {
+    const data = await socialFunction("list");
+    box.innerHTML = (data.data || []).map(item => `<div class="social-row"><span><strong>${escapeHtml(item.display_name)}</strong><br><small>${escapeHtml(item.provider)} · เชื่อมต่อแล้ว</small></span><button class="danger-button social-disconnect" data-connection-id="${escapeHtml(item.id)}">ยกเลิกการเชื่อมต่อ</button></div>`).join("") || "ยังไม่มีบัญชีที่เชื่อมต่อ";
+  } catch (error) { box.textContent = error.message; }
+}
+function renderContentPreview() {
+  const title = $("#draftTitle")?.value.trim() || "ยังไม่มีหัวข้อ";
+  const body = $("#draftBody")?.value.trim() || "ยังไม่มีข้อความโพสต์";
+  const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value).join(" · ") || "ยังไม่ได้เลือกแพลตฟอร์ม";
+  $("#contentPreview").innerHTML = `<strong>${escapeHtml(title)}</strong><div style="margin:10px 0">${escapeHtml(body)}</div><small>${escapeHtml(platforms)} · Draft เท่านั้น</small>`;
+}
+async function saveContentDraft() {
+  const session = await refreshSupabaseSession();
+  if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเชื่อมต่อ Supabase ก่อน");
+  const body = $("#draftBody").value.trim(); if (!body) throw new Error("กรุณาใส่ข้อความโพสต์");
+  const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value);
+  if (!platforms.length) throw new Error("กรุณาเลือกแพลตฟอร์มอย่างน้อยหนึ่งรายการ");
+  await supabaseRequest("/rest/v1/content_drafts", {method: "POST", headers: {Prefer: "return=minimal"}, body: JSON.stringify({user_id: session.user.id, title: $("#draftTitle").value.trim(), body, target_platforms: platforms, status: "draft"})});
+  $("#draftStatus").textContent = "บันทึก Draft แล้ว — ยังไม่มีการโพสต์ออกไป";
+  toast("บันทึก Content Draft แล้ว");
 }
 
 async function saveSkill() {
@@ -2525,6 +2586,7 @@ function positionPopover(popover, anchor) {
 function openSettings(page = "general") {
   fillSettingsForm();
   switchSettingsPage(page);
+  if (page === "social") { loadSocialConnections(); renderContentPreview(); }
   $("#settingsModal").classList.add("open");
   $("#modalBackdrop").classList.add("open");
 }
@@ -3275,6 +3337,14 @@ function bindEvents() {
   $("#cancelSettingsButton").addEventListener("click", closeSettings);
   $("#modalBackdrop").addEventListener("click", closeSettings);
   $("#saveSettingsButton").addEventListener("click", saveSettings);
+  $("#connectFacebookButton").addEventListener("click", () => connectSocial("facebook").catch(e => toast(e.message, "error")));
+  $("#connectTiktokButton").addEventListener("click", () => connectSocial("tiktok").catch(e => toast(e.message, "error")));
+  $("#socialConnectionsList").addEventListener("click", event => { const id = event.target.closest(".social-disconnect")?.dataset.connectionId; if (id) socialFunction("disconnect", "", `&id=${encodeURIComponent(id)}`).then(loadSocialConnections).catch(e => toast(e.message, "error")); });
+  $("#refreshPreviewButton").addEventListener("click", renderContentPreview);
+  $("#draftTitle").addEventListener("input", renderContentPreview);
+  $("#draftBody").addEventListener("input", renderContentPreview);
+  document.querySelectorAll(".draft-platform").forEach(item => item.addEventListener("change", renderContentPreview));
+  $("#saveDraftButton").addEventListener("click", () => saveContentDraft().catch(e => toast(e.message, "error")));
   $("#saveSkillButton").addEventListener("click",()=>saveSkill().catch(e=>toast(e.message,"error")));
   $("#loadSkillsButton").addEventListener("click",()=>loadSkills().catch(e=>toast(e.message,"error")));
   $("#skillsList").addEventListener("click",event=>{const id=event.target.closest(".skill-delete")?.dataset.skillId;if(id)deleteSkill(id).catch(e=>toast(e.message,"error"));});
@@ -3464,6 +3534,13 @@ function bindEvents() {
 async function initialize() {
   initializePinLock();
   applySettings();
+  const socialParams = new URLSearchParams(location.search);
+  if (socialParams.get("social_oauth")) {
+    const result = socialParams.get("social_oauth");
+    history.replaceState({}, document.title, location.pathname);
+    setTimeout(() => { if (result === "success") { toast("เชื่อมต่อโซเชียลสำเร็จ"); openSettings("social"); } else toast(socialParams.get("message") || "เชื่อมต่อโซเชียลไม่สำเร็จ", "error"); }, 0);
+  }
+
   bindEvents();
   initializeSpeechRecognition();
 
