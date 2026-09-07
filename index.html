@@ -1524,6 +1524,8 @@ html[data-theme="dark"] .alert {
     <div class="settings-page" data-page="social">
       <h3>Social Connections</h3>
       <div class="alert">เชื่อมต่อเฉพาะบัญชีที่คุณเป็นเจ้าของหรือมีสิทธิ์จัดการเท่านั้น ระบบรุ่นนี้ยังไม่โพสต์จริง จะเก็บเป็น Draft และแสดง Preview ก่อน</div>
+      <div class="form-row"><label for="socialSupabaseUrl">Supabase Project URL</label><input class="text-input" id="socialSupabaseUrl" placeholder="https://your-project.supabase.co"></div>
+      <div class="form-row"><label for="socialSupabaseAnonKey">Supabase anon key</label><input class="text-input" id="socialSupabaseAnonKey" type="password" autocomplete="off" placeholder="eyJ..."><div class="form-help">ใช้ anon/publishable key เท่านั้น ห้ามใช้ service_role key</div></div>
       <div class="form-row"><div class="social-connection-card"><div><strong>Facebook Page</strong><div class="form-help">ต้องใช้ Meta App และสิทธิ์จัดการ Page</div></div><button class="primary-button" id="connectFacebookButton">เชื่อมต่อ Facebook</button></div></div>
       <div class="form-row"><div class="social-connection-card"><div><strong>TikTok</strong><div class="form-help">ต้องเปิด Content Posting API และขอสิทธิ์ video.publish</div></div><button class="primary-button" id="connectTiktokButton">เชื่อมต่อ TikTok</button></div></div>
       <div id="socialConnectionsList" class="form-help">ยังไม่ได้โหลดการเชื่อมต่อ</div>
@@ -1577,48 +1579,36 @@ html[data-theme="dark"] .alert {
 
     <div class="settings-page" data-page="data">
       <h3>ข้อมูลและประวัติ</h3>
-      <div class="form-row">
-        <div class="form-help">ประวัติจะเก็บในเครื่อง และซิงก์กับ Supabase เมื่อเข้าสู่ระบบแล้ว</div>
-      </div>
-      <div class="form-row">
-        <label for="supabaseUrl">Supabase Project URL</label>
-        <input class="text-input" id="supabaseUrl" placeholder="https://your-project.supabase.co">
-      </div>
-      <div class="form-row">
-        <label for="supabaseAnonKey">Supabase anon key</label>
-        <input class="text-input" id="supabaseAnonKey" type="password" autocomplete="off" placeholder="eyJ..."><div class="form-help">ใช้ anon/publishable key เท่านั้น ห้ามใช้ service_role key</div>
-      </div>
-      <div class="form-help" id="supabaseAuthStatus">สถานะฐานข้อมูล: ยังไม่ได้เชื่อมต่อ</div>
-      <div class="form-help">ใช้ PIN ด้านหน้าเป็นการเข้าสู่ระบบสำหรับผู้ใช้คนเดียว ระบบจะสร้าง anonymous session ของ Supabase อัตโนมัติ ไม่ต้องใช้อีเมลหรือรหัสผ่าน</div>
-      <h3>Skills ของ Agent</h3>
-      <div class="form-help">ทักษะจะถูกเก็บใน Supabase และโหลดเป็นแนวทางให้ Agent ใช้ทำงาน</div>
+      <div class="form-help">ประวัติแชตทั้งหมดเก็บอยู่ในเครื่องนี้เท่านั้น (IndexedDB) ไม่มีการส่งออกไปเซิร์ฟเวอร์ภายนอกใดๆ</div>
+
+      <h3>Skills ของ AI</h3>
+      <div class="form-help">ทักษะจะถูกเก็บไว้ในเครื่องนี้ และแนบเป็นแนวทางให้ AI ใช้ตอบโดยอัตโนมัติทุกครั้ง</div>
       <div class="form-row"><label for="skillName">ชื่อ Skill</label><input class="text-input" id="skillName" placeholder="เช่น Frontend Debugging"></div>
       <div class="form-row"><label for="skillDescription">คำอธิบาย</label><input class="text-input" id="skillDescription" placeholder="ทักษะนี้ใช้เมื่อใด"></div>
-      <div class="form-row"><label for="skillInstructions">คำแนะนำให้ Agent</label><textarea class="textarea-input" id="skillInstructions" placeholder="ขั้นตอนและข้อควรทำของทักษะนี้"></textarea></div>
-      <div class="button-row"><button class="primary-button" id="saveSkillButton">บันทึก Skill</button><button class="secondary-button" id="loadSkillsButton">โหลด Skills</button></div>
+      <div class="form-row"><label for="skillInstructions">คำแนะนำให้ AI</label><textarea class="textarea-input" id="skillInstructions" placeholder="ขั้นตอนและข้อควรทำของทักษะนี้"></textarea></div>
+      <div class="button-row"><button class="primary-button" id="saveSkillButton">บันทึก Skill</button><button class="secondary-button" id="loadSkillsButton">รีเฟรชรายการ</button></div>
       <div id="skillsList" class="form-help"></div>
-      <h3>ส่งงานให้ AI Coding Agent</h3>
-      <div class="form-row"><label for="agentTaskTitle">ชื่องาน</label><input class="text-input" id="agentTaskTitle" value="ตรวจสอบและแก้โค้ด"></div>
-      <div class="form-row"><label for="agentTaskPrompt">คำสั่งงาน</label><textarea class="textarea-input" id="agentTaskPrompt" placeholder="เช่น อ่านระบบ Login แล้วแก้ให้ใช้งานได้ พร้อมรัน test"></textarea></div>
-      <div class="button-row"><button class="primary-button" id="agentTaskButton">ส่งงานให้ Agent Runner</button></div>
-      <div class="form-help">ต้องมี Agent Runner เปิดรอรับงานอยู่ใน Codespace หรือเครื่อง Runner</div>
-      <h3>Codespace Runner</h3>
-      <div class="form-help">เปิดเฉพาะตอนมีงาน และหยุดเมื่อไม่มีงาน เพื่อประหยัดโควตา</div>
-      <div class="form-row"><label for="codespaceName">ชื่อ Codespace</label><input class="text-input" id="codespaceName" placeholder="เช่น cautious-space-abc123"></div>
-      <div class="button-row"><button class="secondary-button" id="codespaceStatusButton">ตรวจสถานะ</button><button class="primary-button" id="codespaceStartButton">เปิด Runner</button><button class="secondary-button" id="codespaceStopButton">หยุด Runner</button></div>
-      <div id="codespaceProgress" class="form-help">ยังไม่ได้ตรวจสถานะ Codespace</div>
-      <div class="progress-track"><div id="codespaceProgressBar" class="progress-fill" style="width:0%"></div></div>
-      <h3>GitHub Agent</h3>
-      <div class="form-help">ต้อง Deploy Supabase Edge Function ชื่อ github-agent และตั้งค่า GITHUB_TOKEN ก่อนใช้งาน</div>
-      <div class="form-row"><label for="githubOwner">เจ้าของรีโพสิทอรี</label><input class="text-input" id="githubOwner" value="apirak272543-ship-it"></div>
-      <div class="form-row"><label for="githubRepo">ชื่อรีโพสิทอรี</label><input class="text-input" id="githubRepo" value="ApserviceAI"></div>
-      <div class="form-row"><label for="githubBranch">Branch</label><input class="text-input" id="githubBranch" value="main"></div>
+
+      <h3>GitHub (ทำงานตรงจากเบราว์เซอร์ ไม่ผ่านคิว)</h3>
+      <div class="alert">เชื่อมต่อ GitHub API ตรงจากเบราว์เซอร์เลย ไม่ผ่าน Supabase, คิวงาน หรือ Agent ตัวกลางใดๆ ต้องใช้ Personal Access Token (แนะนำ Fine-grained token จำกัดสิทธิ์เฉพาะรีโพนี้) — Token จะถูกเก็บไว้ในเครื่องนี้เท่านั้น อย่าแชร์สกรีนช็อตหรือไฟล์ export ที่มี Token ติดไปด้วย</div>
+      <div class="form-row">
+        <label for="githubToken">GitHub Personal Access Token</label>
+        <input class="text-input" id="githubToken" type="password" autocomplete="off" placeholder="github_pat_...">
+      </div>
+      <div class="form-row"><label for="githubOwner">เจ้าของรีโพสิทอรี</label><input class="text-input" id="githubOwner" placeholder="เช่น your-username"></div>
+      <div class="form-row"><label for="githubRepo">ชื่อรีโพสิทอรี</label><input class="text-input" id="githubRepo" placeholder="เช่น my-project"></div>
+      <div class="form-row"><label for="githubBranch">Branch</label><input class="text-input" id="githubBranch" placeholder="main"></div>
+      <div class="button-row"><button class="secondary-button" id="githubTestButton">ทดสอบการเชื่อมต่อ GitHub</button></div>
+      <div class="form-help">ตั้งค่าครบแล้วแค่คุยในแชตตามปกติ เช่น "ช่วยอ่านไฟล์ index.html แล้วแก้บั๊ก X" AI จะเรียกใช้เครื่องมือ GitHub เอง (อ่าน/แก้ไฟล์/ดู commit/ดูผล Actions) และ commit ให้ทันที ไม่ต้องรอคิวหรือ Runner ภายนอก</div>
+
+      <h3>แก้ไฟล์ด้วยตนเอง</h3>
       <div class="form-row"><label for="githubPath">Path ไฟล์</label><input class="text-input" id="githubPath" placeholder="index.html"></div>
       <div class="button-row"><button class="secondary-button" id="githubListButton">แสดงรายการไฟล์</button><button class="secondary-button" id="githubReadButton">อ่านไฟล์</button><button class="secondary-button" id="githubRunsButton">ดูผล Actions</button></div>
       <div class="form-row"><label for="githubContent">เนื้อหาไฟล์สำหรับเขียน/แก้ไข</label><textarea class="textarea-input" id="githubContent" spellcheck="false"></textarea></div>
       <div class="form-row"><label for="githubCommitMessage">ข้อความ Commit</label><input class="text-input" id="githubCommitMessage" value="Update from NOVA Chat"></div>
       <div class="button-row"><button class="primary-button" id="githubWriteButton">เขียนไฟล์และ Commit</button></div>
       <pre id="githubOutput" class="code-output"></pre>
+
       <div class="button-row">
         <button class="secondary-button" id="exportButton">ส่งออกข้อมูล JSON</button>
         <button class="secondary-button" id="importButton">นำเข้าข้อมูล JSON</button>
@@ -1710,9 +1700,13 @@ const DEFAULT_SETTINGS = {
   maxTokens: 4096,
   stream: true,
   vision: true,
-	  provider: "google",
-	  supabaseUrl: "https://abtsctwfkgzciseppach.supabase.co",
-	  supabaseAnonKey: ""
+  provider: "google",
+  githubToken: "",
+  githubOwner: "apirak272543-ship-it",
+  githubRepo: "ApserviceAI",
+  githubBranch: "main",
+  supabaseUrl: "",
+  supabaseAnonKey: ""
 };
 
 const PROVIDER_PRESETS = {
@@ -1759,7 +1753,6 @@ function uid(prefix = "id") {
 function loadSettings() {
   try {
     const settings = {...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("nova_settings") || "{}")};
-    if (!settings.supabaseUrl) settings.supabaseUrl = DEFAULT_SETTINGS.supabaseUrl;
     if (settings.model === "gemini-2.5-flash") settings.model = "gemini-3.6-flash";
     return settings;
   } catch {
@@ -1801,7 +1794,7 @@ async function dbSaveChat(chat) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const request = db.transaction(CHAT_STORE, "readwrite").objectStore(CHAT_STORE).put(chat);
-    request.onsuccess = () => { supabaseSyncChat(chat).catch(console.error); resolve(); };
+    request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
 }
@@ -1824,231 +1817,192 @@ async function dbClearChats() {
   });
 }
 
-function supabaseConfigured() {
-  return /^https:\/\/[^\s]+\.supabase\.co\/?$/.test(state.settings.supabaseUrl || "") && Boolean(state.settings.supabaseAnonKey);
+function socialConfigured() { return /^https:\/\/[^\s]+\.supabase\.co\/?$/.test(state.settings.supabaseUrl || "") && Boolean(state.settings.supabaseAnonKey); }
+function socialSession() { try { return JSON.parse(localStorage.getItem("nova_supabase_session") || "null"); } catch { return null; } }
+async function socialRequest(path, options = {}, auth = true) {
+  if (!socialConfigured()) throw new Error("กรุณากรอก Supabase URL และ anon key ในหน้า Social Connections");
+  const session = socialSession();
+  const headers = {"Content-Type":"application/json", apikey:state.settings.supabaseAnonKey, ...(auth && session?.access_token ? {Authorization:"Bearer " + session.access_token} : {})};
+  const response = await fetch(state.settings.supabaseUrl.replace(/\/$/, "") + path, {...options, headers:{...headers, ...(options.headers || {})}});
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.msg || data?.message || data?.error_description || `HTTP ${response.status}`);
+  return data;
 }
+async function ensureSocialSession() {
+  if (!socialConfigured()) throw new Error("กรุณากรอก Supabase URL และ anon key ก่อน");
+  const existing = socialSession(); if (existing?.access_token) return existing;
+  const created = await socialRequest("/auth/v1/signup", {method:"POST", body:JSON.stringify({})}, false);
+  if (!created?.access_token) throw new Error("สร้าง Supabase session ไม่สำเร็จ");
+  localStorage.setItem("nova_supabase_session", JSON.stringify(created)); return created;
+}
+function socialFunctionUrl(action = "list", provider = "") { const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/social-oauth"; return `${base}?action=${encodeURIComponent(action)}${provider ? `&provider=${encodeURIComponent(provider)}` : ""}`; }
+async function socialFunction(action = "list", provider = "", extra = "") { const session = await ensureSocialSession(); const response = await fetch(socialFunctionUrl(action, provider) + extra, {headers:{apikey:state.settings.supabaseAnonKey, Authorization:"Bearer " + session.access_token}}); const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`); return data; }
+async function connectSocial(provider) { const data = await socialFunction("start", provider); if (!data.auth_url) throw new Error("ไม่ได้รับ OAuth URL"); location.href = data.auth_url; }
+async function loadSocialConnections() { const box = $("#socialConnectionsList"); if (!box) return; try { const data = await socialFunction("list"); box.innerHTML = (data.data || []).map(item => `<div class="social-row"><span><strong>${escapeHtml(item.display_name)}</strong><br><small>${escapeHtml(item.provider)} · เชื่อมต่อแล้ว</small></span><button class="danger-button social-disconnect" data-connection-id="${escapeHtml(item.id)}">ยกเลิกการเชื่อมต่อ</button></div>`).join("") || "ยังไม่มีบัญชีที่เชื่อมต่อ"; } catch (error) { box.textContent = error.message; } }
+function renderContentPreview() { const title = $("#draftTitle")?.value.trim() || "ยังไม่มีหัวข้อ"; const body = $("#draftBody")?.value.trim() || "ยังไม่มีข้อความโพสต์"; const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value).join(" · ") || "ยังไม่ได้เลือกแพลตฟอร์ม"; $("#contentPreview").innerHTML = `<strong>${escapeHtml(title)}</strong><div style="margin:10px 0">${escapeHtml(body)}</div><small>${escapeHtml(platforms)} · Draft เท่านั้น</small>`; }
+async function saveContentDraft() { const session = await ensureSocialSession(); const body = $("#draftBody").value.trim(); if (!body) throw new Error("กรุณาใส่ข้อความโพสต์"); const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value); if (!platforms.length) throw new Error("กรุณาเลือกแพลตฟอร์มอย่างน้อยหนึ่งรายการ"); await socialRequest("/rest/v1/content_drafts", {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({user_id:session.user.id, title:$("#draftTitle").value.trim(), body, target_platforms:platforms, status:"draft"})}); $("#draftStatus").textContent = "บันทึก Draft แล้ว — ยังไม่มีการโพสต์ออกไป"; toast("บันทึก Content Draft แล้ว"); }
 
-function supabaseSession() {
-  try { return JSON.parse(localStorage.getItem("nova_supabase_session") || "null"); } catch { return null; }
-}
-
-function supabaseHeaders(auth = true) {
-  const session = supabaseSession();
-  return {
-    "Content-Type": "application/json",
-    apikey: state.settings.supabaseAnonKey,
-    ...(auth && session?.access_token ? {Authorization: "Bearer " + session.access_token} : {})
-  };
-}
-async function refreshSupabaseSession(force = false) {
-  const existing = supabaseSession();
-  if (!supabaseConfigured() || !existing?.refresh_token) return existing;
-  const expiresSoon = !existing.expires_at || existing.expires_at <= Math.floor(Date.now() / 1000) + 90;
-  if (!force && !expiresSoon) return existing;
+function loadSkillsLocal() {
   try {
-    const refreshed = await supabaseRequest("/auth/v1/token?grant_type=refresh_token", {method: "POST", body: JSON.stringify({refresh_token: existing.refresh_token})}, false);
-    if (refreshed?.access_token) {
-      const next = {...existing, ...refreshed, user: refreshed.user || existing.user};
-      localStorage.setItem("nova_supabase_session", JSON.stringify(next));
-      updateSupabaseAuthStatus();
-      return next;
-    }
-  } catch (error) { console.warn("Supabase session refresh failed:", error.message); }
-  return existing;
+    const raw = localStorage.getItem("nova_skills");
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+function persistSkillsLocal(list) {
+  localStorage.setItem("nova_skills", JSON.stringify(list));
+}
+function ensureDefaultSkillsSeeded() {
+  if (loadSkillsLocal() === null) {
+    persistSkillsLocal(DEFAULT_SKILLS.map(skill => ({id: uid("skill"), ...skill})));
+  }
+}
+function saveSkill() {
+  const name = $("#skillName").value.trim(), description = $("#skillDescription").value.trim(), instructions = $("#skillInstructions").value.trim();
+  if (!name || !instructions) throw new Error("กรุณากรอกชื่อและคำแนะนำของ Skill");
+  const list = loadSkillsLocal() || [];
+  list.unshift({id: uid("skill"), name, description, instructions, enabled: true});
+  persistSkillsLocal(list);
+  $("#skillName").value = ""; $("#skillDescription").value = ""; $("#skillInstructions").value = "";
+  renderSkillsList();
+  toast("บันทึก Skill แล้ว");
+}
+function renderSkillsList() {
+  const list = loadSkillsLocal() || [];
+  $("#skillsList").innerHTML = list.map(skill =>
+    `<div style="margin:8px 0;padding:10px;border:1px solid var(--border);border-radius:10px"><b>${escapeHtml(skill.name)}</b><br><small>${escapeHtml(skill.description||"")}</small><br><button class="danger-button skill-delete" data-skill-id="${skill.id}">ลบ</button></div>`
+  ).join("") || "ยังไม่มี Skill";
+}
+function deleteSkill(id) {
+  persistSkillsLocal((loadSkillsLocal() || []).filter(skill => skill.id !== id));
+  renderSkillsList();
 }
 
-async function supabaseRequest(path, options = {}, auth = true) {
-  if (!supabaseConfigured()) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ anon key");
-  const request = () => fetch(state.settings.supabaseUrl.replace(/\/$/, "") + path, {
+function githubReady() {
+  return Boolean(state.settings.githubToken && state.settings.githubOwner && state.settings.githubRepo);
+}
+
+async function githubFetch(path, options = {}) {
+  if (!githubReady()) throw new Error("กรุณาตั้งค่า GitHub Token, Owner และ Repo ในหน้าตั้งค่าก่อน");
+  const response = await fetch(`https://api.github.com${path}`, {
     ...options,
-    headers: {...supabaseHeaders(auth), ...(options.headers || {})}
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": "Bearer " + state.settings.githubToken,
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(options.headers || {})
+    }
   });
-  let response = await request();
-  if (response.status === 401 && auth && supabaseSession()?.refresh_token) {
-    await refreshSupabaseSession(true);
-    response = await request();
-  }
   const text = await response.text();
   let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
-  if (!response.ok) throw new Error(data?.msg || data?.message || data?.error_description || text || `HTTP ${response.status}`);
+  if (!response.ok) throw new Error((data && (data.message || JSON.stringify(data))) || `GitHub API HTTP ${response.status}`);
   return data;
 }
 
-async function socialFunctionUrl(action = "list", provider = "") {
-  const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/social-oauth";
-  return `${base}?action=${encodeURIComponent(action)}${provider ? `&provider=${encodeURIComponent(provider)}` : ""}`;
+function b64EncodeUtf8(str) { return btoa(unescape(encodeURIComponent(str))); }
+function b64DecodeUtf8(str) { return decodeURIComponent(escape(atob(String(str).replace(/\n/g, "")))); }
+
+async function githubTestConnection() {
+  const data = await githubFetch(`/repos/${encodeURIComponent(state.settings.githubOwner)}/${encodeURIComponent(state.settings.githubRepo)}`);
+  return {full_name: data.full_name, default_branch: data.default_branch, private: data.private};
 }
-async function socialFunction(action = "list", provider = "", extra = "") {
-  const session = await refreshSupabaseSession();
-  if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเชื่อมต่อ Supabase ก่อน");
-  const response = await fetch(socialFunctionUrl(action, provider) + extra, {headers: {apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}});
-  const data = await response.json();
-  if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
-  return data;
+
+async function githubListFiles(branch) {
+  const b = branch || state.settings.githubBranch || "main";
+  const data = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/git/trees/${encodeURIComponent(b)}?recursive=1`);
+  return (data.tree || []).filter(item => item.type === "blob").map(item => item.path);
 }
-async function connectSocial(provider) {
-  const data = await socialFunction("start", provider);
-  if (!data.auth_url) throw new Error("ไม่ได้รับ OAuth URL");
-  location.href = data.auth_url;
+
+async function githubReadFile(path, branch) {
+  if (!path) throw new Error("กรุณาระบุ path ของไฟล์");
+  const b = branch || state.settings.githubBranch || "main";
+  const data = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(b)}`);
+  if (Array.isArray(data)) throw new Error("Path นี้เป็นโฟลเดอร์ ไม่ใช่ไฟล์");
+  return {path, content: b64DecodeUtf8(data.content || ""), sha: data.sha};
 }
-async function loadSocialConnections() {
-  const box = $("#socialConnectionsList");
-  if (!box) return;
+
+async function githubWriteFile({path, content, message, branch}) {
+  if (!path) throw new Error("กรุณาระบุ path ของไฟล์");
+  if (typeof content !== "string") throw new Error("กรุณาระบุเนื้อหาไฟล์");
+  const b = branch || state.settings.githubBranch || "main";
+  let sha;
   try {
-    const data = await socialFunction("list");
-    box.innerHTML = (data.data || []).map(item => `<div class="social-row"><span><strong>${escapeHtml(item.display_name)}</strong><br><small>${escapeHtml(item.provider)} · เชื่อมต่อแล้ว</small></span><button class="danger-button social-disconnect" data-connection-id="${escapeHtml(item.id)}">ยกเลิกการเชื่อมต่อ</button></div>`).join("") || "ยังไม่มีบัญชีที่เชื่อมต่อ";
-  } catch (error) { box.textContent = error.message; }
-}
-function renderContentPreview() {
-  const title = $("#draftTitle")?.value.trim() || "ยังไม่มีหัวข้อ";
-  const body = $("#draftBody")?.value.trim() || "ยังไม่มีข้อความโพสต์";
-  const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value).join(" · ") || "ยังไม่ได้เลือกแพลตฟอร์ม";
-  $("#contentPreview").innerHTML = `<strong>${escapeHtml(title)}</strong><div style="margin:10px 0">${escapeHtml(body)}</div><small>${escapeHtml(platforms)} · Draft เท่านั้น</small>`;
-}
-async function saveContentDraft() {
-  const session = await refreshSupabaseSession();
-  if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเชื่อมต่อ Supabase ก่อน");
-  const body = $("#draftBody").value.trim(); if (!body) throw new Error("กรุณาใส่ข้อความโพสต์");
-  const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value);
-  if (!platforms.length) throw new Error("กรุณาเลือกแพลตฟอร์มอย่างน้อยหนึ่งรายการ");
-  await supabaseRequest("/rest/v1/content_drafts", {method: "POST", headers: {Prefer: "return=minimal"}, body: JSON.stringify({user_id: session.user.id, title: $("#draftTitle").value.trim(), body, target_platforms: platforms, status: "draft"})});
-  $("#draftStatus").textContent = "บันทึก Draft แล้ว — ยังไม่มีการโพสต์ออกไป";
-  toast("บันทึก Content Draft แล้ว");
+    const existing = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(b)}`);
+    sha = existing?.sha;
+  } catch {}
+  const body = {message: message || "Update from NOVA Chat", content: b64EncodeUtf8(content), branch: b};
+  if (sha) body.sha = sha;
+  const data = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(path)}`, {
+    method: "PUT",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  });
+  return {path, commit_sha: data.commit?.sha, url: data.content?.html_url};
 }
 
-async function saveSkill() {
-  const session=supabaseSession(); if(!supabaseConfigured()||!session?.access_token) throw new Error("กรุณาปลดล็อกและเชื่อมต่อ Supabase ก่อน");
-  const name=$("#skillName").value.trim(), description=$("#skillDescription").value.trim(), instructions=$("#skillInstructions").value.trim();
-  if(!name||!instructions) throw new Error("กรุณากรอกชื่อและคำแนะนำของ Skill");
-  await supabaseRequest("/rest/v1/skills",{method:"POST",headers:{Prefer:"resolution=merge-duplicates"},body:JSON.stringify({user_id:session.user.id,name,description,instructions,enabled:true})});
-  $("#skillName").value=""; $("#skillDescription").value=""; $("#skillInstructions").value=""; await loadSkills(); toast("บันทึก Skill แล้ว");
+async function githubSearchCode(query) {
+  if (!query) throw new Error("กรุณาระบุคำค้นหา");
+  const data = await githubFetch(`/search/code?q=${encodeURIComponent(query)}+repo:${state.settings.githubOwner}/${state.settings.githubRepo}`);
+  return (data.items || []).map(item => ({path: item.path, url: item.html_url}));
 }
-async function loadSkills() {
-  const session=supabaseSession(); if(!supabaseConfigured()||!session?.access_token) return;
-  const rows=await supabaseRequest("/rest/v1/skills?select=id,name,description,instructions,enabled&order=created_at.desc");
-  $("#skillsList").innerHTML=(rows||[]).map(skill=>`<div style="margin:8px 0;padding:10px;border:1px solid var(--border);border-radius:10px"><b>${escapeHtml(skill.name)}</b><br><small>${escapeHtml(skill.description||"")}</small><br><button class="danger-button skill-delete" data-skill-id="${skill.id}">ลบ</button></div>`).join("")||"ยังไม่มี Skill";
-}
-async function deleteSkill(id) { await supabaseRequest("/rest/v1/skills?id=eq."+encodeURIComponent(id),{method:"DELETE"}); await loadSkills(); }
 
-function isCodingAgentRequest(text = "") {
-  const value = String(text).toLowerCase().replace(/[ํ่้๊๋์]/g, "");
-  return /(github|githup|git hub|repo|repository|รีโพ|รีโพธ|ลีโพ|โพธ|โครงการ|โปรเจกต์|โค้ด|โค๊ด|ไฟล์|แก้ไข|แก้บั๊ก|แก้ปัญหา|commit|push|pull request|ทดสอบระบบ|รันคำสั่ง|อ่านโปรเจกต์|อ่านไฟล์|อ่าน.*(ทุก|ทั้งหมด).*(รี|ลี|repo|โครงการ|โปรเจกต์)|ทุก.*(รี|ลี).*(โพ|repo)|deploy|supabase|supabas|database|ฐานข้อมูล|เชื่อมต่อฐานข้อมูล|ทดสอบการเชื่อมต่อ)/i.test(value);
+async function githubListCommits(branch) {
+  const b = branch || state.settings.githubBranch || "main";
+  const data = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/commits?sha=${encodeURIComponent(b)}&per_page=10`);
+  return (data || []).map(c => ({sha: c.sha.slice(0,7), message: c.commit.message, author: c.commit.author?.name, date: c.commit.author?.date}));
 }
-function isCapabilityQuestion(text = "") {
-  return /(พร้อมทำงาน|พร้อมใช้งาน|เชื่อมต่อ.*(github|githup|git|กิต|กิท|ฮับ|รีโพ|supabase|ฐานข้อมูล)|เข้าถึงได้ไหม|เข้าถึงไฟล์|ทำอะไรได้บ้าง.*(github|githup|รีโพ|ไฟล์|กิต|กิท)|สถานะการเชื่อมต่อ|เชื่อมต่อได้หรือยัง|เชื่อมต่อแล้วหรือยัง)/i.test(text);
+
+async function githubListWorkflowRuns() {
+  const data = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/actions/runs?per_page=5`);
+  return (data.workflow_runs || []).map(run => ({name: run.name, status: run.status, conclusion: run.conclusion, url: run.html_url, created_at: run.created_at}));
 }
-async function localCapabilityStatus() {
-  const session = supabaseSession();
-  const supabaseOk = Boolean(supabaseConfigured() && session?.access_token);
-  const endpointOk = Boolean(state.settings.endpoint && state.settings.model);
-  let githubStatus = "ยังตรวจสอบไม่ได้";
-  let checks = "";
-  if (supabaseOk) {
-    try {
-      const result = await githubAgent("github_connection_test");
-      githubStatus = result.data?.ok ? "เชื่อมต่อและตรวจสอบ GitHub สำเร็จ" : "เชื่อมต่อได้แต่มีขั้นตอนที่ไม่ผ่าน";
-      checks = (result.data?.checks || []).map(check => `- ${check.name}: **${check.status}**${check.login ? ` (${check.login})` : ""}`).join("\\n");
-    } catch (error) { githubStatus = "ตรวจสอบ GitHub ไม่สำเร็จ: " + error.message; }
-  }
-  return `## สถานะ NOVA Coding Agent\n\n- Supabase หน้าเว็บ: **${supabaseOk ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ/หมดอายุ ต้องเข้าสู่ระบบใหม่"}**\n- GitHub Agent: **${githubStatus}**\n${checks}\n- AI Chat ปกติ: **${endpointOk ? "ตั้งค่าแล้ว" : "ยังไม่ได้ตั้งค่า Endpoint/Model"}**\n\nสถานะ GitHub ด้านบนมาจาก response จริงของ GitHub API ไม่ใช่คำตอบคาดเดาจากโมเดล หากต้องการแก้ไขไฟล์ ให้ส่งคำสั่งงาน ระบบจะแสดง Task ID หรือ error จริงจากการ dispatch`;
+
+async function githubDispatchWorkflow({workflow_file, branch}) {
+  if (!workflow_file) throw new Error("กรุณาระบุชื่อไฟล์ workflow เช่น test.yml");
+  const b = branch || state.settings.githubBranch || "main";
+  await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/actions/workflows/${encodeURIComponent(workflow_file)}/dispatches`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ref: b})
+  });
+  return {dispatched: true, workflow_file, ref: b};
 }
-async function createAgentTask(promptOverride = null, titleOverride = null) {
-  let session = await refreshSupabaseSession();
-  if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาเข้าสู่ระบบ Supabase ก่อน");
-  const prompt = (promptOverride ?? $("#agentTaskPrompt").value).trim();
-  if (!prompt) throw new Error("กรุณาใส่คำสั่งงาน");
-  const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/github-agent";
-  const payload = {owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main", action: "enqueue_task", title: titleOverride || $("#agentTaskTitle").value.trim() || "งานใหม่", prompt};
-  let response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify(payload)});
-  if (response.status === 401) {
-    session = await refreshSupabaseSession(true);
-    response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify(payload)});
-  }
-  const data = await response.json();
-  if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
-  $("#githubOutput").textContent = JSON.stringify(data, null, 2);
-  toast("ส่งงานเข้า Agent แล้ว กำลังเริ่ม GitHub Actions ทันที");
-  return data.data || data;
-}
-function workflowToolLabel(name) {
-  const labels = {list_files: "กำลังอ่านรายการไฟล์", read_file: "กำลังอ่านไฟล์", search_code: "กำลังค้นหาโค้ด", write_file: "กำลังเขียนไฟล์", git: "กำลังตรวจสอบ Git", git_log: "กำลังอ่านประวัติ Git", run_tests: "กำลังรันทดสอบ", run_workflow: "กำลังเรียก Workflow"};
-  if (String(name).startsWith("checkpoint:")) {
-    const checkpoints = {"task_started": "Runner รับงานแล้ว", "repository_discovery_started": "เริ่มค้นหา Repository", "inspection_completed": "อ่าน Repository เสร็จแล้ว", "verification_completed": "ตรวจสอบผลลัพธ์เสร็จแล้ว", "task_completed": "บันทึกผลลัพธ์แล้ว", "task_failed": "งานล้มเหลว"};
-    return checkpoints[String(name).slice(11)] || "อัปเดตความคืบหน้า Agent";
-  }
+
+const GITHUB_TOOLS = [
+  {type: "function", function: {name: "github_list_files", description: "แสดงรายการไฟล์ทั้งหมดในรีโพ GitHub ที่ตั้งค่าไว้", parameters: {type: "object", properties: {branch: {type: "string", description: "ชื่อ branch (ถ้าไม่ระบุจะใช้ branch ที่ตั้งค่าไว้)"}}, required: []}}},
+  {type: "function", function: {name: "github_read_file", description: "อ่านเนื้อหาไฟล์จากรีโพ GitHub", parameters: {type: "object", properties: {path: {type: "string", description: "path ของไฟล์ในรีโพ"}, branch: {type: "string"}}, required: ["path"]}}},
+  {type: "function", function: {name: "github_write_file", description: "สร้างหรือแก้ไขไฟล์ในรีโพ GitHub แล้ว commit ทันที", parameters: {type: "object", properties: {path: {type: "string"}, content: {type: "string", description: "เนื้อหาไฟล์ทั้งหมดหลังแก้ไข"}, message: {type: "string", description: "ข้อความ commit"}, branch: {type: "string"}}, required: ["path", "content"]}}},
+  {type: "function", function: {name: "github_search_code", description: "ค้นหาโค้ดภายในรีโพ GitHub", parameters: {type: "object", properties: {query: {type: "string"}}, required: ["query"]}}},
+  {type: "function", function: {name: "github_list_commits", description: "แสดงประวัติ commit ล่าสุดของ branch", parameters: {type: "object", properties: {branch: {type: "string"}}, required: []}}},
+  {type: "function", function: {name: "github_list_workflow_runs", description: "แสดงผลการรัน GitHub Actions ล่าสุด (เช่น ผล test/build)", parameters: {type: "object", properties: {}, required: []}}},
+  {type: "function", function: {name: "github_dispatch_workflow", description: "สั่งรัน GitHub Actions workflow (เช่น รัน test หรือ deploy)", parameters: {type: "object", properties: {workflow_file: {type: "string", description: "ชื่อไฟล์ workflow เช่น test.yml"}, branch: {type: "string"}}, required: ["workflow_file"]}}}
+];
+
+function githubToolLabel(name) {
+  const labels = {
+    github_list_files: "กำลังอ่านรายการไฟล์ในรีโพ",
+    github_read_file: "กำลังอ่านไฟล์",
+    github_write_file: "กำลังเขียนไฟล์และ commit",
+    github_search_code: "กำลังค้นหาโค้ด",
+    github_list_commits: "กำลังอ่านประวัติ commit",
+    github_list_workflow_runs: "กำลังเช็คผล GitHub Actions",
+    github_dispatch_workflow: "กำลังสั่งรัน Workflow"
+  };
   return labels[name] || `กำลังใช้เครื่องมือ ${name}`;
 }
-async function watchAgentWorkflow(chat, agentMessage, taskId) {
-  const workflow = agentMessage.workflow;
-  const started = Date.now();
-  const update = async (patch, save = true) => {
-    Object.assign(workflow, patch);
-    chat.updatedAt = Date.now();
-    if (save) await dbSaveChat(chat).catch(handleStorageError);
-    renderChat();
-  };
-  while (Date.now() - started < 45 * 60 * 1000) {
-    try {
-      const rows = await supabaseRequest(`/rest/v1/tasks?id=eq.${encodeURIComponent(taskId)}&select=status,result,error,started_at,completed_at`);
-      const task = rows?.[0];
-      if (!task) throw new Error("ยังอ่านสถานะ Task ไม่ได้");
-      let calls = [];
-      try { calls = await supabaseRequest(`/rest/v1/tool_calls?task_id=eq.${encodeURIComponent(taskId)}&select=tool_name,status&order=created_at.asc`); } catch {}
-      const events = ["งานถูกสร้างจากหน้าแชท", "Supabase ตอบรับและส่งงานเข้า GitHub Actions"];
-      if (task.status === "running") events.push("GitHub Actions เริ่ม Runner แล้ว");
-      (calls || []).forEach(call => events.push(`${workflowToolLabel(call.tool_name)} (${call.status})`));
-      if (task.status === "completed") events.push("Agent บันทึกผลลัพธ์กลับ Supabase แล้ว");
-      if (task.status === "failed") events.push(`Agent แจ้งข้อผิดพลาด: ${task.error || "ไม่ทราบสาเหตุ"}`);
-      const current = task.status === "queued" ? 1 : task.status === "running" ? (calls?.length ? Math.min(5, 3 + calls.length) : 2) : 6;
-      if (task.status === "completed") {
-        const result = task.result || {};
-        agentMessage.content = result.answer || result.summary || "Agent ทำงานเสร็จแล้ว แต่ไม่มีข้อความสรุปกลับมา";
-        agentMessage.status = "done";
-        await update({status: "completed", current: 6, events});
-        return;
-      }
-      if (task.status === "failed") {
-        agentMessage.content = `Agent ทำงานไม่สำเร็จ: ${task.error || "ไม่ทราบสาเหตุ"}`;
-        agentMessage.status = "error";
-        await update({status: "failed", current, events});
-        return;
-      }
-      await update({status: task.status, current, events});
-    } catch (error) {
-      workflow.events = [...(workflow.events || []), "กำลังรอข้อมูลสถานะจาก Supabase..."].slice(-5);
-      renderChat();
-    }
-    await new Promise(resolve => setTimeout(resolve, 4000));
-  }
-  agentMessage.content = "งานยังทำงานอยู่เบื้องหลัง กรุณากลับมาเปิดแชทนี้อีกครั้งเพื่อดูผลลัพธ์";
-  agentMessage.status = "done";
-  await update({status: "running", current: 3, events: [...(workflow.events || []), "งานยังทำงานอยู่เบื้องหลัง"]});
-}
 
-function renderCodespaceProgress(state, message) {
-  const labels={Unknown:"ไม่ทราบสถานะ",Created:"สร้างแล้ว",Queued:"กำลังเข้าคิว",Provisioning:"กำลังเตรียมเครื่อง",Starting:"กำลังเปิด Runner",Available:"พร้อมใช้งาน",ShuttingDown:"กำลังหยุด Runner",Shutdown:"หยุดแล้ว",Failed:"ผิดพลาด"};
-  const value={Available:100,Starting:65,Provisioning:35,Queued:15,ShuttingDown:60,Shutdown:0,Created:10}[state] ?? 5;
-  $("#codespaceProgress").textContent=(message||labels[state]||state||"ยังไม่มีสถานะ"); $("#codespaceProgressBar").style.width=value+"%";
-}
-async function codespaceAction(action) {
-  const name=$("#codespaceName").value.trim(); if(!name) throw new Error("กรุณาใส่ชื่อ Codespace");
-  renderCodespaceProgress(action==="codespace_start"?"Starting":"ShuttingDown", action==="codespace_start"?"10% กำลังส่งคำสั่งเปิด Terminal Runner":"กำลังส่งคำสั่งหยุด Runner");
-  const data=await githubAgent(action,{codespaceName:name}); const state=data.result?.state||"Unknown"; renderCodespaceProgress(state, `สถานะ Codespace: ${state}`); return data;
-}
-async function githubAgent(action, extra = {}) {
-  let session = await refreshSupabaseSession();
-  if (!supabaseConfigured() || !session?.access_token) throw new Error("กรุณาตั้งค่า Supabase และเข้าสู่ระบบก่อน");
-  const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/github-agent";
-  const payload = {owner: $("#githubOwner").value.trim(), repo: $("#githubRepo").value.trim(), branch: $("#githubBranch").value.trim() || "main", action, path: $("#githubPath").value.trim(), ...extra};
-  let response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify(payload)});
-  if (response.status === 401) {
-    session = await refreshSupabaseSession(true);
-    response = await fetch(base, {method: "POST", headers: {"Content-Type": "application/json", apikey: state.settings.supabaseAnonKey, Authorization: "Bearer " + session.access_token}, body: JSON.stringify(payload)});
+async function executeGithubTool(name, args = {}) {
+  switch (name) {
+    case "github_list_files": return await githubListFiles(args.branch);
+    case "github_read_file": return await githubReadFile(args.path, args.branch);
+    case "github_write_file": return await githubWriteFile(args);
+    case "github_search_code": return await githubSearchCode(args.query);
+    case "github_list_commits": return await githubListCommits(args.branch);
+    case "github_list_workflow_runs": return await githubListWorkflowRuns();
+    case "github_dispatch_workflow": return await githubDispatchWorkflow(args);
+    default: throw new Error("ไม่รู้จักเครื่องมือ: " + name);
   }
-  const data = await response.json();
-  if (!response.ok || data.error) { const error = new Error(data.error || `HTTP ${response.status}`); error.code = data.code || data.details?.code; error.status = response.status; throw error; }
-  $("#githubOutput").textContent = JSON.stringify(data, null, 2);
-  return data;
 }
 
 const DEFAULT_SKILLS = [
@@ -2064,93 +2018,6 @@ const DEFAULT_SKILLS = [
 {name:"Technical Change Summary",description:"สรุปงานและผลการเปลี่ยนแปลงให้ผู้ใช้เข้าใจง่าย",instructions:"รายงานเป้าหมาย สาเหตุ ไฟล์ที่อ่านและแก้ การเปลี่ยนแปลง คำสั่ง test/build ผลลัพธ์ สิ่งที่ทำไม่ได้ และ commit hash หากมี"}
 ];
 
-async function seedDefaultSkills() {
-  const session = supabaseSession();
-  if (!supabaseConfigured() || !session?.access_token || !session.user?.id) return;
-  const existing = await supabaseRequest("/rest/v1/skills?select=name");
-  const names = new Set((existing || []).map(item => item.name));
-  const missing = DEFAULT_SKILLS.filter(skill => !names.has(skill.name)).map(skill => ({...skill, user_id: session.user.id, enabled: true}));
-  if (missing.length) await supabaseRequest("/rest/v1/skills?on_conflict=user_id,name", {method: "POST", headers: {Prefer: "resolution=ignore-duplicates"}, body: JSON.stringify(missing)});
-}
-
-async function supabaseAnonymousLogin() {
-  if (!supabaseConfigured()) return false;
-  const existing = supabaseSession();
-  if (existing?.access_token) {
-    await refreshSupabaseSession();
-    updateSupabaseAuthStatus(); await seedDefaultSkills().catch(error => console.warn("Default skills skipped:", error.message)); await loadSupabaseChats().catch(console.warn); return true;
-  }
-  const data = await supabaseRequest("/auth/v1/signup", {method: "POST", body: JSON.stringify({})}, false);
-  if (!data?.access_token) throw new Error("ต้องเปิด Anonymous Sign-Ins ใน Supabase Authentication ก่อน");
-  localStorage.setItem("nova_supabase_session", JSON.stringify(data));
-  updateSupabaseAuthStatus();
-  await seedDefaultSkills().catch(error => console.warn("Default skills skipped:", error.message));
-  await loadSupabaseChats().catch(console.warn);
-  return true;
-}
-
-async function supabaseAuth(mode) {
-  const formSettings = readSettingsForm();
-  state.settings = {...state.settings, supabaseUrl: formSettings.supabaseUrl, supabaseAnonKey: formSettings.supabaseAnonKey};
-  persistSettings();
-  const email = $("#supabaseEmail").value.trim();
-  const password = $("#supabasePassword").value;
-  if (!email || !password) throw new Error("กรุณากรอกอีเมลและรหัสผ่าน");
-  const path = mode === "signup" ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
-  const data = await supabaseRequest(path, {method: "POST", body: JSON.stringify({email, password})}, false);
-  if (mode === "signup" && !data?.access_token) {
-    toast("สมัครสำเร็จ โปรดตรวจอีเมลเพื่อยืนยันบัญชี");
-    return;
-  }
-  localStorage.setItem("nova_supabase_session", JSON.stringify(data));
-  updateSupabaseAuthStatus();
-  await loadSupabaseChats();
-  toast("เข้าสู่ระบบ Supabase สำเร็จ");
-}
-
-async function supabaseSignOut() {
-  const session = supabaseSession();
-  if (session?.access_token && supabaseConfigured()) {
-    await supabaseRequest("/auth/v1/logout", {method: "POST"}).catch(() => {});
-  }
-  localStorage.removeItem("nova_supabase_session");
-  updateSupabaseAuthStatus();
-  toast("ออกจากระบบแล้ว");
-}
-
-function updateSupabaseAuthStatus() {
-  const status = $("#supabaseAuthStatus");
-  if (!status) return;
-  const session = supabaseSession();
-  status.textContent = session?.access_token ? "สถานะฐานข้อมูล: เชื่อมต่อแล้ว" : "สถานะฐานข้อมูล: ยังไม่ได้เชื่อมต่อ";
-}
-
-async function supabaseSyncChat(chat) {
-  if (!supabaseConfigured() || !supabaseSession()?.user?.id) return;
-  await supabaseRequest("/rest/v1/chat_histories?on_conflict=user_id,id", {
-    method: "POST",
-    headers: {Prefer: "resolution=merge-duplicates"},
-    body: JSON.stringify({id: chat.id, user_id: supabaseSession().user.id, title: chat.title, chat: chat, updated_at: new Date(chat.updatedAt).toISOString()})
-  });
-}
-
-async function loadSupabaseChats() {
-  if (!supabaseConfigured() || !supabaseSession()?.user?.id) return;
-  const rows = await supabaseRequest("/rest/v1/chat_histories?select=chat&user_id=eq." + encodeURIComponent(supabaseSession().user.id) + "&order=updated_at.desc");
-  for (const row of rows || []) if (row.chat?.id) await dbSaveChatLocal(row.chat);
-  state.chats = await dbGetAllChats();
-  state.chats.sort((a,b) => b.updatedAt - a.updatedAt);
-  state.activeChatId = state.chats[0]?.id || null;
-  renderSidebar(); renderChat({scroll:false});
-}
-
-async function dbSaveChatLocal(chat) {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(CHAT_STORE, "readwrite").objectStore(CHAT_STORE).put(chat);
-    request.onsuccess = () => resolve(); request.onerror = () => reject(request.error);
-  });
-}
 
 function currentChat() {
   return state.chats.find(chat => chat.id === state.activeChatId) || null;
@@ -2420,30 +2287,13 @@ function messageActionButton(action, title, icon) {
   return `<button class="message-action" data-action="${action}" title="${title}">${icon}</button>`;
 }
 
-const AGENT_WORKFLOW_STEPS = [
-  "รับคำสั่งจาก NOVA",
-  "ส่งงานเข้า Supabase",
-  "เรียก GitHub Actions",
-  "Runner อ่าน Repository",
-  "ตรวจสอบและแก้ไขตามคำสั่ง",
-  "ทดสอบและบันทึกผล",
-  "ส่งผลลัพธ์กลับ NOVA"
-];
 function renderAgentWorkflow(workflow) {
-  const failed = workflow.status === "failed";
-  const current = failed ? Math.max(0, workflow.current - 1) : workflow.current;
-  const progress = failed ? Math.max(12, Math.round(((current + 1) / AGENT_WORKFLOW_STEPS.length) * 100)) : Math.round(((current + 1) / AGENT_WORKFLOW_STEPS.length) * 100);
-  const steps = AGENT_WORKFLOW_STEPS.map((label, index) => {
-    const cls = index < current || (workflow.status === "completed" && index <= current) ? "done" : index === current && workflow.status !== "completed" ? "current" : "";
-    const mark = index < current || (workflow.status === "completed" && index <= current) ? "✓" : String(index + 1);
-    return `<div class="agent-workflow-step ${cls}"><span class="agent-workflow-dot">${mark}</span><span>${escapeHtml(label)}</span></div>`;
-  }).join("");
-  const events = (workflow.events || []).slice(-5).map(event => `<div class="agent-workflow-event">${escapeHtml(event)}</div>`).join("");
-  const stateLabel = failed ? "งานล้มเหลว" : workflow.status === "completed" ? "เสร็จสิ้น" : `${progress}% กำลังทำงาน`;
-  return `<section class="agent-workflow ${workflow.status === "completed" || failed ? "" : "running"}">
-    <div class="agent-workflow-head"><span class="agent-workflow-title">Workflow ของ Coding Agent</span><span class="agent-workflow-state">${escapeHtml(stateLabel)}</span></div>
-    <div class="agent-workflow-bar"><span style="width:${progress}%"></span></div>
-    <div class="agent-workflow-steps">${steps}</div>
+  const failed = workflow.status === "error";
+  const done = workflow.status === "done";
+  const stateLabel = failed ? "เกิดข้อผิดพลาด" : done ? "เสร็จสิ้น" : "กำลังทำงาน...";
+  const events = (workflow.events || []).slice(-8).map(event => `<div class="agent-workflow-event">${escapeHtml(event)}</div>`).join("");
+  return `<section class="agent-workflow ${done || failed ? "" : "running"}">
+    <div class="agent-workflow-head"><span class="agent-workflow-title">GitHub Agent (ทำงานตรงจากเบราว์เซอร์)</span><span class="agent-workflow-state">${escapeHtml(stateLabel)}</span></div>
     ${events ? `<div class="agent-workflow-events">${events}</div>` : ""}
   </section>`;
 }
@@ -2586,7 +2436,7 @@ function positionPopover(popover, anchor) {
 function openSettings(page = "general") {
   fillSettingsForm();
   switchSettingsPage(page);
-  if (page === "social") { loadSocialConnections(); renderContentPreview(); }
+  if (page === "social") { $("#socialSupabaseUrl").value = state.settings.supabaseUrl || ""; $("#socialSupabaseAnonKey").value = state.settings.supabaseAnonKey || ""; loadSocialConnections(); renderContentPreview(); }
   $("#settingsModal").classList.add("open");
   $("#modalBackdrop").classList.add("open");
 }
@@ -2603,9 +2453,11 @@ function switchSettingsPage(page) {
 
 function fillSettingsForm() {
   const s = state.settings;
-  $("#supabaseUrl").value = s.supabaseUrl || "";
-  $("#supabaseAnonKey").value = s.supabaseAnonKey || "";
-  updateSupabaseAuthStatus();
+  $("#githubToken").value = s.githubToken || "";
+  $("#githubOwner").value = s.githubOwner || "";
+  $("#githubRepo").value = s.githubRepo || "";
+  $("#githubBranch").value = s.githubBranch || "";
+  renderSkillsList();
   $("#settingAppName").value = s.appName;
   $("#settingUserName").value = s.userName;
   $("#settingTheme").value = s.theme;
@@ -2622,6 +2474,8 @@ function fillSettingsForm() {
   $("#settingMaxTokens").value = s.maxTokens;
   $("#settingStream").checked = s.stream;
   $("#settingVision").checked = s.vision;
+  $("#socialSupabaseUrl").value = s.supabaseUrl || "";
+  $("#socialSupabaseAnonKey").value = s.supabaseAnonKey || "";
 }
 
 function readSettingsForm() {
@@ -2651,8 +2505,12 @@ function readSettingsForm() {
     maxTokens: Math.max(64, Number($("#settingMaxTokens").value) || 4096),
     stream: $("#settingStream").checked,
     vision: $("#settingVision").checked,
-    supabaseUrl: $("#supabaseUrl").value.trim().replace(/\/$/, ""),
-    supabaseAnonKey: $("#supabaseAnonKey").value.trim()
+    githubToken: $("#githubToken").value.trim(),
+    githubOwner: $("#githubOwner").value.trim(),
+    githubRepo: $("#githubRepo").value.trim(),
+    githubBranch: $("#githubBranch").value.trim() || "main",
+    supabaseUrl: $("#socialSupabaseUrl").value.trim().replace(/\/$/, ""),
+    supabaseAnonKey: $("#socialSupabaseAnonKey").value.trim()
   };
 }
 
@@ -2661,13 +2519,10 @@ async function saveSettings() {
     state.settings = readSettingsForm();
     persistSettings();
     applySettings();
-    if (supabaseConfigured()) {
-      await supabaseAnonymousLogin();
-    }
     renderSidebar();
     renderChat({scroll:false});
     closeSettings();
-    toast(supabaseConfigured() ? "บันทึกแล้วและเชื่อมต่อ Supabase สำเร็จ" : "บันทึกการตั้งค่าแล้ว");
+    toast("บันทึกการตั้งค่าแล้ว");
   } catch (error) {
     toast(error.message, "error");
   }
@@ -2722,10 +2577,28 @@ function buildApiContent(message) {
   return text;
 }
 
+function buildSystemPrompt() {
+  const parts = [];
+  if (state.settings.systemPrompt) parts.push(state.settings.systemPrompt);
+
+  const skills = (loadSkillsLocal() || []).filter(skill => skill.enabled);
+  if (skills.length) {
+    const skillsText = skills.map(skill => `### ${skill.name}\n${skill.instructions}`).join("\n\n");
+    parts.push(`แนวทาง/Skills ที่ผู้ใช้กำหนดไว้ ให้ใช้เป็นแนวทางเมื่อเกี่ยวข้อง:\n\n${skillsText}`);
+  }
+
+  if (githubReady()) {
+    parts.push(`คุณมีเครื่องมือ github_list_files, github_read_file, github_write_file, github_search_code, github_list_commits, github_list_workflow_runs และ github_dispatch_workflow สำหรับทำงานกับรีโพ GitHub "${state.settings.githubOwner}/${state.settings.githubRepo}" (branch เริ่มต้น "${state.settings.githubBranch || "main"}") โดยตรงและทันที ไม่มีคิวหรือตัวกลางใดๆ ให้เรียกใช้เครื่องมือเหล่านี้เมื่อผู้ใช้ขอให้ดู แก้ไข หรือจัดการไฟล์/โค้ด/commit/ผลการรันในรีโพนี้ เมื่อแก้ไฟล์ ให้อ่านเนื้อหาปัจจุบันก่อนเสมอ แล้วเขียนไฟล์ฉบับเต็มกลับไป`);
+  }
+
+  return parts.join("\n\n");
+}
+
 function buildApiMessages(chat, endIndex = chat.messages.length) {
   const result = [];
-  if (state.settings.systemPrompt) {
-    result.push({role: "system", content: state.settings.systemPrompt});
+  const systemPrompt = buildSystemPrompt();
+  if (systemPrompt) {
+    result.push({role: "system", content: systemPrompt});
   }
 
   for (const message of chat.messages.slice(0, endIndex)) {
@@ -2793,43 +2666,6 @@ async function sendMessage() {
   await dbSaveChat(chat).catch(handleStorageError);
   renderSidebar();
   renderChat();
-  if (isCapabilityQuestion(text)) {
-    chat.messages.push({id: uid("msg"), role: "assistant", content: "กำลังตรวจ Supabase และ GitHub API จริง...", attachments: [], createdAt: Date.now(), status: "thinking"});
-    renderChat();
-    const capabilityMessage = chat.messages[chat.messages.length - 1];
-    capabilityMessage.content = await localCapabilityStatus();
-    capabilityMessage.status = "done";
-    chat.updatedAt = Date.now();
-    await dbSaveChat(chat).catch(handleStorageError);
-    renderChat();
-    return;
-  }
-  if (isCodingAgentRequest(text)) {
-    const agentMessage = {id: uid("msg"), role: "assistant", content: "กำลังส่งคำสั่งนี้ให้ NOVA Coding Agent เพื่ออ่าน/แก้ไขรีโพจริงครับ...", attachments: [], createdAt: Date.now(), status: "thinking", workflow: {status: "queued", current: 0, events: ["กำลังรับคำสั่งจากหน้าแชท..."]}};
-    chat.messages.push(agentMessage);
-    renderChat();
-    try {
-      const task = await createAgentTask(text, "งานจากแชทหลัก");
-      agentMessage.content = `ส่งงานเข้า GitHub Agent แล้ว\n\nTask ID: ${task.task_id || "ไม่ระบุ"}\n\nกำลังติดตามขั้นตอนการทำงานจาก Supabase และ GitHub Actions...`;
-      agentMessage.status = "done";
-      agentMessage.workflow = {status: "queued", current: 1, events: ["รับคำสั่งจาก NOVA แล้ว", "Supabase ตอบรับและส่งงานเข้า GitHub Actions"]};
-      await dbSaveChat(chat).catch(handleStorageError);
-      renderChat();
-      watchAgentWorkflow(chat, agentMessage, task.task_id).catch(error => {
-        agentMessage.workflow = {...agentMessage.workflow, status: "failed", events: [...(agentMessage.workflow?.events || []), "ติดตามสถานะไม่ได้: " + error.message]};
-        renderChat();
-      });
-      return;
-    } catch (error) {
-      agentMessage.content = "ส่งงานเข้า Coding Agent ไม่สำเร็จ: " + error.message;
-      agentMessage.status = "error";
-      agentMessage.workflow = {...agentMessage.workflow, status: "failed", current: 0, events: [...(agentMessage.workflow?.events || []), "ส่งงานไม่สำเร็จ: " + error.message]};
-    }
-    chat.updatedAt = Date.now();
-    await dbSaveChat(chat).catch(handleStorageError);
-    renderChat();
-    return;
-  }
   await generateAssistantResponse(chat);
 }
 
@@ -2856,52 +2692,97 @@ async function generateAssistantResponse(chat) {
   updateSendButton();
   renderChat();
 
+  const useTools = githubReady();
+  const apiMessages = buildApiMessages(chat, chat.messages.length - 1);
+  if (useTools) assistantMessage.workflow = {status: "running", events: []};
+
   try {
-    const requestBody = {
-      model: state.settings.model,
-      messages: buildApiMessages(chat, chat.messages.length - 1),
-      temperature: state.settings.temperature,
-      max_tokens: state.settings.maxTokens,
-      stream: state.settings.stream
-    };
+    let iterations = 0;
+    while (true) {
+      iterations += 1;
+      if (iterations > 8) throw new Error("ทำงานวนซ้ำหลายรอบเกินไป (เกิน 8 ครั้ง) จึงหยุดเพื่อความปลอดภัย");
 
-    const response = await fetch(state.settings.endpoint, {
-      method: "POST",
-      headers: buildRequestHeaders(),
-      body: JSON.stringify(requestBody),
-      signal: state.abortController.signal
-    });
-
-    if (!response.ok) {
-      let details = "";
-      try {
-        const errorJson = await response.json();
-        details = errorJson?.error?.message || JSON.stringify(errorJson);
-      } catch {
-        details = await response.text();
+      const requestBody = {
+        model: state.settings.model,
+        messages: apiMessages,
+        temperature: state.settings.temperature,
+        max_tokens: state.settings.maxTokens,
+        stream: useTools ? false : state.settings.stream
+      };
+      if (useTools) {
+        requestBody.tools = GITHUB_TOOLS;
+        requestBody.tool_choice = "auto";
       }
-      throw new Error(`API ${response.status}: ${details || response.statusText}`);
-    }
 
-    if (state.settings.stream && response.body) {
-      assistantMessage.status = "streaming";
-      await consumeStream(response, assistantMessage);
-    } else {
+      const response = await fetch(state.settings.endpoint, {
+        method: "POST",
+        headers: buildRequestHeaders(),
+        body: JSON.stringify(requestBody),
+        signal: state.abortController.signal
+      });
+
+      if (!response.ok) {
+        let details = "";
+        try {
+          const errorJson = await response.json();
+          details = errorJson?.error?.message || JSON.stringify(errorJson);
+        } catch {
+          details = await response.text();
+        }
+        throw new Error(`API ${response.status}: ${details || response.statusText}`);
+      }
+
+      if (!useTools && state.settings.stream && response.body) {
+        assistantMessage.status = "streaming";
+        await consumeStream(response, assistantMessage);
+        break;
+      }
+
       const json = await response.json();
+      const choiceMessage = json?.choices?.[0]?.message;
+      const toolCalls = choiceMessage?.tool_calls;
+
+      if (toolCalls && toolCalls.length) {
+        apiMessages.push({role: "assistant", content: choiceMessage.content || null, tool_calls: toolCalls});
+        assistantMessage.status = "streaming";
+        for (const call of toolCalls) {
+          const name = call.function?.name;
+          let args = {};
+          try { args = JSON.parse(call.function?.arguments || "{}"); } catch {}
+          assistantMessage.workflow.events.push(githubToolLabel(name));
+          renderChat();
+          let resultPayload;
+          try {
+            resultPayload = await executeGithubTool(name, args);
+          } catch (toolError) {
+            resultPayload = {error: toolError.message};
+            assistantMessage.workflow.events.push(`ผิดพลาด: ${toolError.message}`);
+          }
+          apiMessages.push({role: "tool", tool_call_id: call.id, content: JSON.stringify(resultPayload).slice(0, 12000)});
+        }
+        chat.updatedAt = Date.now();
+        await dbSaveChat(chat).catch(handleStorageError);
+        continue;
+      }
+
       assistantMessage.content = extractResponseText(json);
+      break;
     }
 
     assistantMessage.status = "done";
+    if (assistantMessage.workflow) assistantMessage.workflow.status = "done";
     if (!assistantMessage.content.trim()) {
       assistantMessage.content = "API ส่งคำตอบว่างกลับมา";
     }
   } catch (error) {
     if (error.name === "AbortError") {
       assistantMessage.status = "done";
+      if (assistantMessage.workflow) assistantMessage.workflow.status = "done";
       if (!assistantMessage.content) assistantMessage.content = "หยุดการสร้างคำตอบแล้ว";
     } else {
       console.error(error);
       assistantMessage.status = "error";
+      if (assistantMessage.workflow) assistantMessage.workflow.status = "error";
       assistantMessage.content =
         "เชื่อมต่อ AI ไม่สำเร็จ: " + error.message +
         "\n\nโปรดตรวจสอบ Endpoint, API Key, ชื่อโมเดล, CORS และการเชื่อมต่ออินเทอร์เน็ต";
@@ -3187,7 +3068,7 @@ async function exportData() {
     application: "NOVA Chat Single File",
     version: 1,
     exportedAt: new Date().toISOString(),
-    settings: {...state.settings, apiKey: ""},
+    settings: {...state.settings, apiKey: "", githubToken: ""},
     chats: state.chats
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
@@ -3222,7 +3103,6 @@ async function importDataFile(file) {
     }
 
     state.chats = await dbGetAllChats();
-    await loadSupabaseChats().catch(error => console.warn("Supabase sync skipped:", error.message));
     state.chats.sort((a,b) => b.updatedAt - a.updatedAt);
     state.activeChatId = state.chats[0]?.id || null;
     renderSidebar();
@@ -3332,30 +3212,71 @@ function bindEvents() {
   $("#deleteChatMenu").addEventListener("click", deleteSelectedChat);
 
   $("#settingsButton").addEventListener("click", () => openSettings("general"));
-  $("#modelButton").addEventListener("click", () => openSettings("connection"));
-  $("#closeSettingsButton").addEventListener("click", closeSettings);
-  $("#cancelSettingsButton").addEventListener("click", closeSettings);
-  $("#modalBackdrop").addEventListener("click", closeSettings);
-  $("#saveSettingsButton").addEventListener("click", saveSettings);
   $("#connectFacebookButton").addEventListener("click", () => connectSocial("facebook").catch(e => toast(e.message, "error")));
   $("#connectTiktokButton").addEventListener("click", () => connectSocial("tiktok").catch(e => toast(e.message, "error")));
   $("#socialConnectionsList").addEventListener("click", event => { const id = event.target.closest(".social-disconnect")?.dataset.connectionId; if (id) socialFunction("disconnect", "", `&id=${encodeURIComponent(id)}`).then(loadSocialConnections).catch(e => toast(e.message, "error")); });
   $("#refreshPreviewButton").addEventListener("click", renderContentPreview);
-  $("#draftTitle").addEventListener("input", renderContentPreview);
-  $("#draftBody").addEventListener("input", renderContentPreview);
-  document.querySelectorAll(".draft-platform").forEach(item => item.addEventListener("change", renderContentPreview));
+  $("#draftTitle").addEventListener("input", renderContentPreview); $("#draftBody").addEventListener("input", renderContentPreview); document.querySelectorAll(".draft-platform").forEach(item => item.addEventListener("change", renderContentPreview));
   $("#saveDraftButton").addEventListener("click", () => saveContentDraft().catch(e => toast(e.message, "error")));
-  $("#saveSkillButton").addEventListener("click",()=>saveSkill().catch(e=>toast(e.message,"error")));
-  $("#loadSkillsButton").addEventListener("click",()=>loadSkills().catch(e=>toast(e.message,"error")));
-  $("#skillsList").addEventListener("click",event=>{const id=event.target.closest(".skill-delete")?.dataset.skillId;if(id)deleteSkill(id).catch(e=>toast(e.message,"error"));});
-  $("#agentTaskButton").addEventListener("click", () => createAgentTask().catch(e => toast(e.message, "error")));
-  $("#codespaceStatusButton").addEventListener("click",()=>githubAgent("codespace_status",{codespaceName:$("#codespaceName").value.trim()}).then(data=>renderCodespaceProgress(data.result?.state||"Unknown")).catch(e=>toast(e.message,"error")));
-  $("#codespaceStartButton").addEventListener("click",()=>codespaceAction("codespace_start").catch(e=>{renderCodespaceProgress("Failed",e.message);toast(e.message,"error");}));
-  $("#codespaceStopButton").addEventListener("click",()=>codespaceAction("codespace_stop").catch(e=>{renderCodespaceProgress("Failed",e.message);toast(e.message,"error");}));
-  $("#githubListButton").addEventListener("click", () => githubAgent("list_files").catch(e => toast(e.message, "error")));
-  $("#githubReadButton").addEventListener("click", async () => { try { const data = await githubAgent("read_file"); $("#githubContent").value = data.content || ""; } catch (e) { toast(e.message, "error"); } });
-  $("#githubRunsButton").addEventListener("click", () => githubAgent("runs").catch(e => toast(e.message, "error")));
-  $("#githubWriteButton").addEventListener("click", () => githubAgent("write_file", {content: $("#githubContent").value, message: $("#githubCommitMessage").value.trim()}).then(() => toast("เขียนไฟล์และ Commit สำเร็จ")).catch(e => toast(e.message, "error")));
+  $("#modelButton").addEventListener("click", () => openSettings("connection"));
+  $("#closeSettingsButton").addEventListener("click", closeSettings);
+  $("#cancelSettingsButton").addEventListener("click", closeSettings);
+  $("#modalBackdrop").addEventListener("click", closeSettings);
+  $("#saveSettingsButton").addEventListener("click", () => { state.settings.supabaseUrl = $("#socialSupabaseUrl")?.value.trim() || state.settings.supabaseUrl; state.settings.supabaseAnonKey = $("#socialSupabaseAnonKey")?.value.trim() || state.settings.supabaseAnonKey; persistSettings(); saveSettings(); });
+  $("#saveSkillButton").addEventListener("click", () => { try { saveSkill(); } catch (e) { toast(e.message, "error"); } });
+  $("#loadSkillsButton").addEventListener("click", renderSkillsList);
+  $("#skillsList").addEventListener("click", event => { const id = event.target.closest(".skill-delete")?.dataset.skillId; if (id) deleteSkill(id); });
+
+  function syncGithubSettingsFromForm() {
+    state.settings.githubToken = $("#githubToken").value.trim();
+    state.settings.githubOwner = $("#githubOwner").value.trim();
+    state.settings.githubRepo = $("#githubRepo").value.trim();
+    state.settings.githubBranch = $("#githubBranch").value.trim() || "main";
+    persistSettings();
+  }
+  $("#githubTestButton").addEventListener("click", async () => {
+    syncGithubSettingsFromForm();
+    try {
+      const data = await githubTestConnection();
+      $("#githubOutput").textContent = JSON.stringify(data, null, 2);
+      toast("เชื่อมต่อ GitHub สำเร็จ");
+    } catch (e) { toast(e.message, "error"); }
+  });
+  $("#githubListButton").addEventListener("click", async () => {
+    syncGithubSettingsFromForm();
+    try {
+      const files = await githubListFiles($("#githubBranch").value.trim());
+      $("#githubOutput").textContent = files.join("\n");
+    } catch (e) { toast(e.message, "error"); }
+  });
+  $("#githubReadButton").addEventListener("click", async () => {
+    syncGithubSettingsFromForm();
+    try {
+      const data = await githubReadFile($("#githubPath").value.trim(), $("#githubBranch").value.trim());
+      $("#githubContent").value = data.content || "";
+      toast("อ่านไฟล์สำเร็จ");
+    } catch (e) { toast(e.message, "error"); }
+  });
+  $("#githubRunsButton").addEventListener("click", async () => {
+    syncGithubSettingsFromForm();
+    try {
+      const runs = await githubListWorkflowRuns();
+      $("#githubOutput").textContent = JSON.stringify(runs, null, 2);
+    } catch (e) { toast(e.message, "error"); }
+  });
+  $("#githubWriteButton").addEventListener("click", async () => {
+    syncGithubSettingsFromForm();
+    try {
+      const data = await githubWriteFile({
+        path: $("#githubPath").value.trim(),
+        content: $("#githubContent").value,
+        message: $("#githubCommitMessage").value.trim(),
+        branch: $("#githubBranch").value.trim()
+      });
+      $("#githubOutput").textContent = JSON.stringify(data, null, 2);
+      toast("เขียนไฟล์และ Commit สำเร็จ");
+    } catch (e) { toast(e.message, "error"); }
+  });
   $("#providerPreset").addEventListener("change", event => applyProviderPreset(event.target.value));
   $("#testConnectionButton").addEventListener("click", testConnection);
 
@@ -3535,12 +3456,9 @@ async function initialize() {
   initializePinLock();
   applySettings();
   const socialParams = new URLSearchParams(location.search);
-  if (socialParams.get("social_oauth")) {
-    const result = socialParams.get("social_oauth");
-    history.replaceState({}, document.title, location.pathname);
-    setTimeout(() => { if (result === "success") { toast("เชื่อมต่อโซเชียลสำเร็จ"); openSettings("social"); } else toast(socialParams.get("message") || "เชื่อมต่อโซเชียลไม่สำเร็จ", "error"); }, 0);
-  }
+  if (socialParams.get("social_oauth")) { const result = socialParams.get("social_oauth"); history.replaceState({}, document.title, location.pathname); setTimeout(() => { if (result === "success") { toast("เชื่อมต่อโซเชียลสำเร็จ"); openSettings("social"); } else toast(socialParams.get("message") || "เชื่อมต่อโซเชียลไม่สำเร็จ", "error"); }, 0); }
 
+  ensureDefaultSkillsSeeded();
   bindEvents();
   initializeSpeechRecognition();
 
