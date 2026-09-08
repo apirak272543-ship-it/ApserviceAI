@@ -2,6 +2,12 @@
 
 ระบบนี้รองรับการเชื่อมต่อ **Facebook Page** และ **TikTok** แบบ OAuth, เก็บ access/refresh token เป็น ciphertext ฝั่ง Supabase Edge Function และมีขั้น **Draft/Preview → ยืนยัน → Publish จริง** แยกกันชัดเจน
 
+## Public URLs ที่ฝังไว้แล้ว
+
+ตัวแอปมี endpoint สาธารณะของ provider อยู่แล้ว: GitHub API `https://api.github.com`, Meta Graph API `https://graph.facebook.com/v26.0`, TikTok Open API `https://open.tiktokapis.com/v2` และ Supabase project URL `https://abtsctwfkgzciseppach.supabase.co` จึงไม่ต้องกรอก URL เหล่านี้ใหม่
+
+สิ่งที่ยังต้องกรอกเองคือ **GitHub token, Supabase anon key, Meta App ID/Secret, TikTok Client Key/Secret และ encryption key** เพราะเป็นข้อมูลรับรอง ไม่ใช่ public URL
+
 ## 1. ใช้ schema
 
 รันไฟล์ `schema.sql`, `agent_schema.sql` และ `social_schema.sql` ใน Supabase SQL Editor ตามลำดับ

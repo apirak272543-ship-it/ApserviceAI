@@ -1711,9 +1711,15 @@ const DEFAULT_SETTINGS = {
   githubOwner: "apirak272543-ship-it",
   githubRepo: "ApserviceAI",
   githubBranch: "main",
-  supabaseUrl: "",
+  supabaseUrl: "https://abtsctwfkgzciseppach.supabase.co",
   supabaseAnonKey: ""
 };
+const PUBLIC_ENDPOINTS = Object.freeze({
+  githubApi: "https://api.github.com",
+  metaGraph: "https://graph.facebook.com/v26.0",
+  tiktokOpenApi: "https://open.tiktokapis.com/v2",
+  supabaseFunctions: "/functions/v1/social-oauth"
+});
 
 const PROVIDER_PRESETS = {
   google: {endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-3.6-flash"},
@@ -1759,6 +1765,7 @@ function uid(prefix = "id") {
 function loadSettings() {
   try {
     const settings = {...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("nova_settings") || "{}")};
+    if (!settings.supabaseUrl) settings.supabaseUrl = DEFAULT_SETTINGS.supabaseUrl;
     if (settings.model === "gemini-2.5-flash") settings.model = "gemini-3.6-flash";
     return settings;
   } catch {

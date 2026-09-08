@@ -13,6 +13,8 @@ const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(supabaseUrl, serviceKey);
 const appUrl = Deno.env.get("SOCIAL_APP_URL") || "http://localhost:3000/index.html";
 const enc = new TextEncoder();
+const META_GRAPH_URL = "https://graph.facebook.com/v26.0";
+const TIKTOK_API_URL = "https://open.tiktokapis.com/v2";
 
 async function userFromRequest(req: Request) {
   const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
@@ -46,14 +48,14 @@ async function start(provider: string, userId: string) {
 async function exchange(provider: string, code: string, uri: string) {
   if (provider === "facebook") {
     const p = new URLSearchParams({ client_id: Deno.env.get("META_APP_ID") || "", client_secret: Deno.env.get("META_APP_SECRET") || "", redirect_uri: uri, code });
-    const token = await fetch(`https://graph.facebook.com/v26.0/oauth/access_token?${p}`).then(r => r.json());
+    const token = await fetch(`${META_GRAPH_URL}/oauth/access_token?${p}`).then(r => r.json());
     if (token.error) throw new Error(token.error.message || "Meta token exchange failed");
-    const pages = await fetch(`https://graph.facebook.com/v26.0/me/accounts?fields=id,name,access_token,tasks&access_token=${encodeURIComponent(token.access_token)}`).then(r => r.json());
+    const pages = await fetch(`${META_GRAPH_URL}/me/accounts?fields=id,name,access_token,tasks&access_token=${encodeURIComponent(token.access_token)}`).then(r => r.json());
     if (pages.error) throw new Error(pages.error.message || "Unable to list Facebook Pages");
     return (pages.data || []).map((page: any) => ({ id: page.id, name: page.name, access: page.access_token, refresh: null, expires: null, scopes: scopes(provider), metadata: { tasks: page.tasks || [] } }));
   }
   const body = new URLSearchParams({ client_key: Deno.env.get("TIKTOK_CLIENT_KEY") || "", client_secret: Deno.env.get("TIKTOK_CLIENT_SECRET") || "", code, grant_type: "authorization_code", redirect_uri: uri });
-  const token = await fetch("https://open.tiktokapis.com/v2/oauth/token/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body }).then(r => r.json());
+  const token = await fetch(`${TIKTOK_API_URL}/oauth/token/`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body }).then(r => r.json());
   if (token.error) throw new Error(token.error_description || "TikTok token exchange failed");
   return [{ id: token.open_id, name: "TikTok account", access: token.access_token, refresh: token.refresh_token, expires: token.expires_in ? new Date(Date.now() + token.expires_in * 1000).toISOString() : null, scopes: (token.scope || "").split(",").filter(Boolean), metadata: { refresh_expires_in: token.refresh_expires_in || null } }];
 }
@@ -67,14 +69,14 @@ async function publish(provider: string, userId: string, payload: any) {
   if (!body) throw new Error("ข้อความโพสต์ว่าง");
   if (provider === "facebook") {
     const form = new URLSearchParams({ message: body, access_token: token });
-    const response = await fetch(`https://graph.facebook.com/v26.0/${connection.provider_account_id}/feed`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
+    const response = await fetch(`${META_GRAPH_URL}/${connection.provider_account_id}/feed`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
     const result = await response.json();
     if (!response.ok || result.error) throw new Error(result.error?.message || "Facebook publish failed");
     return { provider, published: true, id: result.id };
   }
   const mediaUrl = String(payload.media_url || "").trim();
   if (!mediaUrl) throw new Error("TikTok Direct Post ต้องมี Media URL ที่เข้าถึงได้จากอินเทอร์เน็ต");
-  const init = await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=UTF-8" }, body: JSON.stringify({ post_info: { title: body, privacy_level: String(payload.privacy_level || "PUBLIC_TO_EVERYONE"), disable_duet: false, disable_comment: false, disable_stitch: false }, source_info: { source: "PULL_FROM_URL", video_url: mediaUrl } }) });
+  const init = await fetch(`${TIKTOK_API_URL}/post/publish/video/init/`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=UTF-8" }, body: JSON.stringify({ post_info: { title: body, privacy_level: String(payload.privacy_level || "PUBLIC_TO_EVERYONE"), disable_duet: false, disable_comment: false, disable_stitch: false }, source_info: { source: "PULL_FROM_URL", video_url: mediaUrl } }) });
   const result = await init.json();
   if (!init.ok || result.error?.code !== "ok") throw new Error(result.error?.message || "TikTok publish failed");
   return { provider, published: true, publish_id: result.data?.publish_id, status: "processing" };
