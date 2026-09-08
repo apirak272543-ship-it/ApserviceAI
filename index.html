@@ -461,10 +461,33 @@ body.sidebar-collapsed #sidebar {
 .direct-execution-dot { width: 18px; height: 18px; display: grid; place-items: center; flex: 0 0 18px; border: 1px solid var(--border); border-radius: 50%; font-size: 10px; }
 .direct-execution-step.done .direct-execution-dot { color: #fff; background: var(--accent); border-color: var(--accent); }
 .direct-execution-step.current .direct-execution-dot { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); animation: direct-execution-pulse 1.4s ease-in-out infinite; }
-.direct-execution-events { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
-.direct-execution-event { display: flex; gap: 7px; }
-.direct-execution-event::before { content: "•"; color: var(--accent); }
+.direct-execution-events {
+  display: grid; gap: 2px; margin-top: 12px; padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: #0b0d12; border-radius: 8px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12.5px; line-height: 1.55;
+  max-height: 260px; overflow-y: auto;
+}
+.direct-execution-event { display: flex; gap: 7px; color: #9aa0ac; white-space: pre-wrap; word-break: break-word; }
+.direct-execution-event::before { content: "$"; color: #5b8dee; flex-shrink: 0; }
+.direct-execution-event.ok { color: #7ee787; }
+.direct-execution-event.ok::before { content: "✓"; color: #3fb950; }
+.direct-execution-event.err { color: #ff9492; }
+.direct-execution-event.err::before { content: "✗"; color: #f85149; }
+.direct-execution.running .direct-execution-events::after {
+  content: "▍"; color: #5b8dee; animation: direct-execution-pulse .9s steps(1) infinite;
+}
 @keyframes direct-execution-pulse { 50% { opacity: .55; } }
+.provider-rows { display: grid; gap: 12px; margin-top: 10px; }
+.provider-row { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--surface-2); }
+.provider-row-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.provider-row-rank { font-weight: 800; font-size: 12px; color: #fff; background: var(--accent); border-radius: 999px; width: 22px; height: 22px; display: grid; place-items: center; flex-shrink: 0; }
+.toggle-inline { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.provider-row-move { margin-left: auto; display: flex; gap: 4px; }
+.icon-mini { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 11px; }
+.icon-mini:hover { background: var(--border); color: var(--text); }
+.provider-row.disabled { opacity: .5; }
 .message-content > :first-child {
   margin-top: 0;
 }
@@ -1470,56 +1493,58 @@ html[data-theme="dark"] .alert {
     </div>
 
     <div class="settings-page" data-page="connection">
-      <h3>การเชื่อมต่อ AI</h3>
+      <h3>ผู้ให้บริการ AI (รองรับหลายค่าย + สำรองอัตโนมัติ)</h3>
       <div class="alert">
-        เว็บแบบ Static ไม่สามารถซ่อน API Key ได้ หากเผยแพร่บน GitHub Pages ควรใช้ API Proxy ฝั่งเซิร์ฟเวอร์ และไม่ควรบันทึก Secret Key ลงในไฟล์นี้
+        เว็บแบบ Static ไม่สามารถซ่อน API Key ได้ หากเผยแพร่บน GitHub Pages ควรใช้ API Proxy ฝั่งเซิร์ฟเวอร์ และไม่ควรบันทึก Secret Key ลงในไฟล์นี้ — เพิ่มผู้ให้บริการได้หลายอันดับ เรียงจากบนลงล่าง อันดับ 1 (บนสุด) จะถูกใช้ก่อนเสมอ ถ้าอันดับ 1 เรียกไม่สำเร็จ (error/timeout) ระบบจะข้ามไปลองอันดับถัดไปให้อัตโนมัติทันที ไล่ไปเรื่อยๆ จนกว่าจะสำเร็จหรือหมดรายการ เลือกค่ายแล้วใส่แค่ API Key/Token ของตัวเองก็พอ ไม่ต้องจำ URL
       </div>
-      <div class="form-row">
-        <label for="providerPreset">ผู้ให้บริการ AI</label>
-        <select class="select-input" id="providerPreset">
-          <option value="google">Google Gemini</option>
-          <option value="openai">OpenAI</option>
-          <option value="groq">Groq</option>
-          <option value="deepseek">DeepSeek</option>
-          <option value="custom">กำหนดเอง</option>
-        </select>
-        <div class="form-help">เลือกผู้ให้บริการเพื่อเติม Endpoint และโมเดลตัวอย่างอัตโนมัติ จากนั้นตรวจสอบสิทธิ์และกดทดสอบการเชื่อมต่อ</div>
+      <div id="providerRows" class="provider-rows"></div>
+      <div class="button-row">
+        <button class="secondary-button" id="addProviderButton">+ เพิ่มผู้ให้บริการ</button>
       </div>
-      <div class="form-row">
-        <label for="settingEndpoint">Chat Completions Endpoint</label>
-        <input class="text-input" id="settingEndpoint" placeholder="https://api.openai.com/v1/chat/completions">
-        <div class="form-help">ต้องเป็น API ที่รองรับรูปแบบ OpenAI Chat Completions และอนุญาต CORS หรือเป็น URL ของ Proxy ของคุณ</div>
-      </div>
-      <div class="form-row">
-        <label for="settingApiKey">API Key หรือ Access Token</label>
-        <input class="text-input" id="settingApiKey" type="password" autocomplete="off" placeholder="ไม่จำเป็นหาก Proxy จัดการให้แล้ว">
-      </div>
-      <div class="form-row">
-        <label for="settingModel">ชื่อโมเดล</label>
-        <input class="text-input" id="settingModel" list="modelCatalog" placeholder="gemini-3.6-flash">
-        <datalist id="modelCatalog">
-          <option value="gemini-3.8-flash">Google Gemini 3.8 Flash</option>
-          <option value="gemini-3.7-flash">Google Gemini 3.7 Flash</option>
-          <option value="gemini-3.6-flash">Google Gemini 3.6 Flash</option>
-          <option value="gemini-3.5-flash">Google Gemini 3.5 Flash</option>
-          <option value="gemini-3.5-flash-lite">Google Gemini 3.5 Flash-Lite</option>
-          <option value="gemini-2.5-flash">Google Gemini 2.5 Flash</option>
-          <option value="gpt-4.1-mini">OpenAI GPT-4.1 mini</option>
-          <option value="gpt-4o-mini">OpenAI GPT-4o mini</option>
-          <option value="gpt-4.1">OpenAI GPT-4.1</option>
-          <option value="llama-3.3-70b-versatile">Groq Llama 3.3 70B</option>
-          <option value="deepseek-chat">DeepSeek Chat</option>
-        </datalist>
-      </div>
-      <div class="form-row">
-        <label for="settingHeaders">Custom headers แบบ JSON</label>
+      <div class="form-row" style="margin-top:14px;">
+        <label for="settingHeaders">Custom headers แบบ JSON (ใช้กับทุกผู้ให้บริการ)</label>
         <textarea class="textarea-input" id="settingHeaders" spellcheck="false" placeholder='{"X-App-Key":"value"}'></textarea>
         <div class="form-help">ใช้สำหรับ Proxy หรือผู้ให้บริการที่ต้องการ Header เพิ่มเติม ห้ามใส่ข้อมูลลับหากเป็นอุปกรณ์สาธารณะ</div>
       </div>
-      <div class="button-row">
-        <button class="secondary-button" id="testConnectionButton">ทดสอบการเชื่อมต่อ</button>
-      </div>
     </div>
+    <template id="providerRowTemplate">
+      <div class="provider-row" data-row>
+        <div class="provider-row-head">
+          <span class="provider-row-rank"></span>
+          <label class="toggle-inline"><input type="checkbox" class="provider-enabled" checked><span>ใช้งาน</span></label>
+          <div class="provider-row-move">
+            <button type="button" class="icon-mini provider-up" title="ขยับขึ้น">▲</button>
+            <button type="button" class="icon-mini provider-down" title="ขยับลง">▼</button>
+            <button type="button" class="icon-mini provider-remove" title="ลบ">✕</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>ผู้ให้บริการ</label>
+          <select class="select-input provider-preset"></select>
+        </div>
+        <div class="form-row">
+          <label>ชื่อที่แสดง (ไม่บังคับ)</label>
+          <input class="text-input provider-label" placeholder="เช่น ตัวหลัก, ตัวสำรอง 1">
+        </div>
+        <div class="form-row">
+          <label>Endpoint</label>
+          <input class="text-input provider-endpoint" placeholder="https://api.example.com/v1/chat/completions">
+        </div>
+        <div class="form-row">
+          <label>ชื่อโมเดล</label>
+          <input class="text-input provider-model" list="">
+          <datalist class="provider-model-list"></datalist>
+        </div>
+        <div class="form-row">
+          <label>API Key / Token</label>
+          <input class="text-input provider-key" type="password" autocomplete="off" placeholder="วางคีย์ของคุณที่นี่">
+        </div>
+        <div class="button-row">
+          <button type="button" class="secondary-button provider-test">ทดสอบการเชื่อมต่อ</button>
+          <span class="form-help provider-test-result"></span>
+        </div>
+      </div>
+    </template>
 
     <div class="settings-page" data-page="social">
       <h3>Social Connections</h3>
@@ -1718,6 +1743,7 @@ const DEFAULT_SETTINGS = {
   stream: true,
   vision: true,
   provider: "google",
+  providers: [],
   githubToken: "",
   githubOwner: "",
   githubRepo: "",
@@ -1733,21 +1759,49 @@ const PUBLIC_ENDPOINTS = Object.freeze({
 });
 
 const PROVIDER_PRESETS = {
-  google: {endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-3.6-flash"},
-  openai: {endpoint: "https://api.openai.com/v1/chat/completions", model: "gpt-4.1-mini"},
-  groq: {endpoint: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile"},
-  deepseek: {endpoint: "https://api.deepseek.com/chat/completions", model: "deepseek-chat"}
+  google:      {label: "Google Gemini",        endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", models: ["gemini-3.8-flash","gemini-3.7-flash","gemini-3.6-flash","gemini-2.5-pro"]},
+  openai:      {label: "OpenAI",                endpoint: "https://api.openai.com/v1/chat/completions", models: ["gpt-5.2","gpt-5.2-mini","gpt-4.1","gpt-4.1-mini","gpt-4o","gpt-4o-mini","o3"]},
+  azure:       {label: "Azure OpenAI",          endpoint: "https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT/chat/completions?api-version=2024-08-01-preview", models: ["gpt-4o"]},
+  anthropicOR: {label: "Anthropic Claude (ผ่าน OpenRouter)", endpoint: "https://openrouter.ai/api/v1/chat/completions", models: ["anthropic/claude-sonnet-4.6","anthropic/claude-opus-4.6","anthropic/claude-haiku-4.5"]},
+  openrouter:  {label: "OpenRouter (รวม 300+ โมเดลทุกค่าย)", endpoint: "https://openrouter.ai/api/v1/chat/completions", models: ["openai/gpt-5.2","anthropic/claude-sonnet-4.6","google/gemini-3.6-flash","meta-llama/llama-3.3-70b-instruct","deepseek/deepseek-chat","x-ai/grok-4","mistralai/mistral-large"]},
+  groq:        {label: "Groq",                  endpoint: "https://api.groq.com/openai/v1/chat/completions", models: ["llama-3.3-70b-versatile","llama-3.1-8b-instant","mixtral-8x7b-32768","gemma2-9b-it"]},
+  deepseek:    {label: "DeepSeek",              endpoint: "https://api.deepseek.com/chat/completions", models: ["deepseek-chat","deepseek-reasoner"]},
+  mistral:     {label: "Mistral AI",            endpoint: "https://api.mistral.ai/v1/chat/completions", models: ["mistral-large-latest","mistral-small-latest","codestral-latest"]},
+  together:    {label: "Together AI",           endpoint: "https://api.together.xyz/v1/chat/completions", models: ["meta-llama/Llama-3.3-70B-Instruct-Turbo","Qwen/Qwen2.5-72B-Instruct-Turbo"]},
+  fireworks:   {label: "Fireworks AI",          endpoint: "https://api.fireworks.ai/inference/v1/chat/completions", models: ["accounts/fireworks/models/llama-v3p3-70b-instruct"]},
+  cerebras:    {label: "Cerebras",              endpoint: "https://api.cerebras.ai/v1/chat/completions", models: ["llama-3.3-70b"]},
+  deepinfra:   {label: "DeepInfra",             endpoint: "https://api.deepinfra.com/v1/openai/chat/completions", models: ["meta-llama/Llama-3.3-70B-Instruct"]},
+  perplexity:  {label: "Perplexity",            endpoint: "https://api.perplexity.ai/chat/completions", models: ["sonar","sonar-pro","sonar-reasoning"]},
+  xai:         {label: "xAI (Grok)",            endpoint: "https://api.x.ai/v1/chat/completions", models: ["grok-4","grok-4-mini"]},
+  sambanova:   {label: "SambaNova",             endpoint: "https://api.sambanova.ai/v1/chat/completions", models: ["Meta-Llama-3.3-70B-Instruct"]},
+  nebius:      {label: "Nebius AI Studio",      endpoint: "https://api.studio.nebius.ai/v1/chat/completions", models: ["meta-llama/Llama-3.3-70B-Instruct"]},
+  moonshot:    {label: "Moonshot AI (Kimi)",    endpoint: "https://api.moonshot.ai/v1/chat/completions", models: ["kimi-k2-0711-preview"]},
+  zai:         {label: "Z.AI (GLM)",            endpoint: "https://api.z.ai/api/paas/v4/chat/completions", models: ["glm-4.6"]},
+  qwenIntl:    {label: "Alibaba Qwen (DashScope Intl)", endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", models: ["qwen-max","qwen-plus"]},
+  huggingface: {label: "Hugging Face Router",   endpoint: "https://router.huggingface.co/v1/chat/completions", models: ["meta-llama/Llama-3.3-70B-Instruct"]},
+  githubModels:{label: "GitHub Models",         endpoint: "https://models.github.ai/inference/chat/completions", models: ["openai/gpt-4o","meta/Llama-3.3-70B-Instruct"]},
+  novita:      {label: "Novita AI",             endpoint: "https://api.novita.ai/v3/openai/chat/completions", models: ["meta-llama/llama-3.3-70b-instruct"]},
+  hyperbolic:  {label: "Hyperbolic",            endpoint: "https://api.hyperbolic.xyz/v1/chat/completions", models: ["meta-llama/Llama-3.3-70B-Instruct"]},
+  ollama:      {label: "Ollama (รันในเครื่องตัวเอง)", endpoint: "http://localhost:11434/v1/chat/completions", models: ["llama3.3","qwen2.5"]},
+  lmstudio:    {label: "LM Studio (รันในเครื่องตัวเอง)", endpoint: "http://localhost:1234/v1/chat/completions", models: ["local-model"]},
+  custom:      {label: "กำหนดเอง / Proxy อื่นๆ", endpoint: "", models: []}
 };
 
-function providerForSettings(settings) {
-  return Object.entries(PROVIDER_PRESETS).find(([, preset]) => preset.endpoint === settings.endpoint)?.[0] || "custom";
+function allPresetModels() {
+  const set = new Set();
+  Object.values(PROVIDER_PRESETS).forEach(p => p.models.forEach(m => set.add(m)));
+  return [...set];
 }
 
-function applyProviderPreset(provider) {
+function applyProviderPreset(provider, rowEl) {
   const preset = PROVIDER_PRESETS[provider];
   if (!preset) return;
-  $("#settingEndpoint").value = preset.endpoint;
-  $("#settingModel").value = preset.model;
+  const endpointInput = rowEl.querySelector(".provider-endpoint");
+  const modelInput = rowEl.querySelector(".provider-model");
+  const modelList = rowEl.querySelector(".provider-model-list");
+  if (endpointInput && preset.endpoint) endpointInput.value = preset.endpoint;
+  if (modelList) modelList.innerHTML = preset.models.map(m => `<option value="${escapeHtml(m)}"></option>`).join("");
+  if (modelInput && !modelInput.value && preset.models[0]) modelInput.value = preset.models[0];
 }
 
 const state = {
@@ -1778,6 +1832,11 @@ function loadSettings() {
     const settings = {...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("nova_settings") || "{}")};
     if (!settings.supabaseUrl) settings.supabaseUrl = DEFAULT_SETTINGS.supabaseUrl;
     if (settings.model === "gemini-2.5-flash") settings.model = "gemini-3.6-flash";
+    if (!Array.isArray(settings.providers) || !settings.providers.length) {
+      settings.providers = (settings.endpoint && settings.model)
+        ? [{id: uid("prov"), presetId: settings.provider || "custom", label: PROVIDER_PRESETS[settings.provider]?.label || "ผู้ให้บริการหลัก", endpoint: settings.endpoint, apiKey: settings.apiKey || "", model: settings.model, enabled: true}]
+        : [];
+    }
     return settings;
   } catch {
     return {...DEFAULT_SETTINGS};
@@ -1987,7 +2046,7 @@ async function githubSelectRepository({owner, repo, branch}) {
   return {selected: `${state.settings.githubOwner}/${state.settings.githubRepo}`, branch: state.settings.githubBranch, private: data.private, default_branch: data.default_branch};
 }
 
-const DEFAULT_POLICY = {allowEdit:true, allowCommit:false, allowFacebook:false, allowTiktok:false, branches:["main"], paths:["*"], maxPostsPerDay:5, emergencyStop:false};
+const DEFAULT_POLICY = {allowEdit:true, allowCommit:true, allowFacebook:false, allowTiktok:false, branches:["main"], paths:["*"], maxPostsPerDay:5, emergencyStop:false};
 function loadPolicy() { try { return {...DEFAULT_POLICY, ...JSON.parse(localStorage.getItem("nova_policy") || "{}")} } catch { return {...DEFAULT_POLICY}; } }
 function savePolicy(policy) { localStorage.setItem("nova_policy", JSON.stringify(policy)); }
 function policyMatch(value, patterns) { return (patterns||[]).some(pattern => { const escaped=String(pattern).trim().split("*").map(part => part.replace(/[.+^${}()|[\]\\]/g,"\\$&")).join(".*"); return new RegExp("^"+escaped+"$").test(value); }); }
@@ -2026,8 +2085,8 @@ const GITHUB_TOOLS = [
   {type: "function", function: {name: "github_select_repository", description: "เลือกรีโพสิทอรีเป้าหมายที่จะอ่าน/แก้ไขต่อจากนี้ ต้องเรียกก่อนใช้เครื่องมือไฟล์อื่นๆ ทุกครั้งที่ต้องการเปลี่ยนไปทำงานกับรีโพอื่น", parameters: {type: "object", properties: {owner: {type: "string", description: "เจ้าของรีโพ เช่น username หรือชื่อองค์กร"}, repo: {type: "string", description: "ชื่อรีโพสิทอรี"}, branch: {type: "string", description: "branch ที่ต้องการทำงานด้วย ถ้าไม่ระบุจะใช้ default branch ของรีโพ"}}, required: ["owner", "repo"]}}},
   {type: "function", function: {name: "github_list_files", description: "แสดงรายการไฟล์ทั้งหมดในรีโพ GitHub ที่เลือกไว้ล่าสุด", parameters: {type: "object", properties: {branch: {type: "string", description: "ชื่อ branch (ถ้าไม่ระบุจะใช้ branch ที่ตั้งค่าไว้)"}}, required: []}}},
   {type: "function", function: {name: "github_read_file", description: "อ่านเนื้อหาไฟล์จากรีโพ GitHub", parameters: {type: "object", properties: {path: {type: "string", description: "path ของไฟล์ในรีโพ"}, branch: {type: "string"}}, required: ["path"]}}},
-  {type: "function", function: {name: "github_write_file", description: "เขียนไฟล์ลง Workspace/Preview ก่อน ยังไม่ commit จนกว่าจะสั่ง publish", parameters: {type: "object", properties: {path: {type: "string"}, content: {type: "string", description: "เนื้อหาไฟล์ทั้งหมดหลังแก้ไข"}, message: {type: "string"}, branch: {type: "string"}}, required: ["path", "content"]}}},
-  {type: "function", function: {name: "github_publish_workspace", description: "ส่งไฟล์ที่ผู้ใช้ตรวจ Preview แล้วออกไป commit บน GitHub", parameters: {type: "object", properties: {message: {type: "string"}}, required: []}}},
+  {type: "function", function: {name: "github_write_file", description: "เขียนไฟล์ลง Workspace/Preview ในเครื่อง (ยังไม่ใช่ commit จริง) ขั้นตอนแรกก่อนเรียก github_publish_workspace ต่อทันทีในเทิร์นเดียวกันเสมอเมื่อผู้ใช้สั่งให้แก้/สร้างไฟล์ ไม่ต้องรอถามผู้ใช้ก่อน", parameters: {type: "object", properties: {path: {type: "string"}, content: {type: "string", description: "เนื้อหาไฟล์ทั้งหมดหลังแก้ไข"}, message: {type: "string"}, branch: {type: "string"}}, required: ["path", "content"]}}},
+  {type: "function", function: {name: "github_publish_workspace", description: "commit และ push ไฟล์ทั้งหมดที่อยู่ใน Workspace ขึ้น GitHub จริงทันที เรียกทันทีต่อจาก github_write_file ทุกครั้งโดยไม่ต้องถามผู้ใช้ก่อนว่าต้องการ commit หรือไม่ ผู้ใช้มีปุ่มย้อนกลับ/ประวัติที่ฝั่งของเขาเองอยู่แล้วหากต้องแก้ไขภายหลัง", parameters: {type: "object", properties: {message: {type: "string"}}, required: []}}},
   {type: "function", function: {name: "github_search_code", description: "ค้นหาโค้ดภายในรีโพ GitHub", parameters: {type: "object", properties: {query: {type: "string"}}, required: ["query"]}}},
   {type: "function", function: {name: "github_list_commits", description: "แสดงประวัติ commit ล่าสุดของ branch", parameters: {type: "object", properties: {branch: {type: "string"}}, required: []}}}
 ];
@@ -2346,9 +2405,12 @@ function renderDirectExecution(workflow) {
   const failed = workflow.status === "error";
   const done = workflow.status === "done";
   const stateLabel = failed ? "เกิดข้อผิดพลาด" : done ? "เสร็จสิ้น" : "กำลังทำงาน...";
-  const events = (workflow.events || []).slice(-8).map(event => `<div class="direct-execution-event">${escapeHtml(event)}</div>`).join("");
+  const events = (workflow.events || []).map(event => {
+    const e = typeof event === "string" ? {text: event, kind: ""} : event;
+    return `<div class="direct-execution-event ${e.kind}">${escapeHtml(e.text)}</div>`;
+  }).join("");
   return `<section class="direct-execution ${done || failed ? "" : "running"}">
-    <div class="direct-execution-head"><span class="direct-execution-title">Direct GitHub Execution</span><span class="direct-execution-state">${escapeHtml(stateLabel)}</span></div>
+    <div class="direct-execution-head"><span class="direct-execution-title">⌘ Terminal</span><span class="direct-execution-state">${escapeHtml(stateLabel)}</span></div>
     ${events ? `<div class="direct-execution-events">${events}</div>` : ""}
   </section>`;
 }
@@ -2395,6 +2457,8 @@ function renderChat(options = {}) {
   const hasMessages = chat && chat.messages.length;
   $("#welcome").classList.toggle("hidden", Boolean(hasMessages));
   $("#messageList").innerHTML = hasMessages ? chat.messages.map(renderMessage).join("") : "";
+
+  document.querySelectorAll(".direct-execution-events").forEach(el => { el.scrollTop = el.scrollHeight; });
 
   if (options.scroll !== false) {
     requestAnimationFrame(scrollToBottom);
@@ -2508,6 +2572,51 @@ function switchSettingsPage(page) {
   $$(".settings-page").forEach(item => item.classList.toggle("active", item.dataset.page === page));
 }
 
+function providerRowHtml(p, index, total) {
+  const tpl = $("#providerRowTemplate").content.cloneNode(true);
+  const row = tpl.querySelector(".provider-row");
+  row.dataset.id = p.id;
+  row.querySelector(".provider-row-rank").textContent = index + 1;
+  row.querySelector(".provider-enabled").checked = p.enabled !== false;
+  row.classList.toggle("disabled", p.enabled === false);
+  const presetSelect = row.querySelector(".provider-preset");
+  presetSelect.innerHTML = Object.entries(PROVIDER_PRESETS).map(([id, preset]) => `<option value="${id}">${escapeHtml(preset.label)}</option>`).join("");
+  presetSelect.value = PROVIDER_PRESETS[p.presetId] ? p.presetId : "custom";
+  row.querySelector(".provider-label").value = p.label || "";
+  row.querySelector(".provider-endpoint").value = p.endpoint || "";
+  const modelInput = row.querySelector(".provider-model");
+  modelInput.value = p.model || "";
+  const modelList = row.querySelector(".provider-model-list");
+  const listId = "modelList_" + p.id;
+  modelList.id = listId;
+  modelInput.setAttribute("list", listId);
+  const preset = PROVIDER_PRESETS[presetSelect.value];
+  if (preset) modelList.innerHTML = preset.models.map(m => `<option value="${escapeHtml(m)}"></option>`).join("");
+  row.querySelector(".provider-key").value = p.apiKey || "";
+  row.querySelector(".provider-up").disabled = index === 0;
+  row.querySelector(".provider-down").disabled = index === total - 1;
+  return row;
+}
+
+function renderProviderRows() {
+  const container = $("#providerRows");
+  container.innerHTML = "";
+  const list = state.settings.providers.length ? state.settings.providers : [{id: uid("prov"), presetId: "google", label: "", endpoint: PROVIDER_PRESETS.google.endpoint, model: PROVIDER_PRESETS.google.models[0], apiKey: "", enabled: true}];
+  list.forEach((p, i) => container.appendChild(providerRowHtml(p, i, list.length)));
+}
+
+function collectProvidersFromForm() {
+  return [...$("#providerRows").querySelectorAll(".provider-row")].map(row => ({
+    id: row.dataset.id,
+    presetId: row.querySelector(".provider-preset").value,
+    label: row.querySelector(".provider-label").value.trim(),
+    endpoint: row.querySelector(".provider-endpoint").value.trim(),
+    model: row.querySelector(".provider-model").value.trim(),
+    apiKey: row.querySelector(".provider-key").value.trim(),
+    enabled: row.querySelector(".provider-enabled").checked
+  })).filter(p => p.endpoint && p.model);
+}
+
 function fillSettingsForm() {
   const s = state.settings;
   $("#githubToken").value = s.githubToken || "";
@@ -2520,10 +2629,7 @@ function fillSettingsForm() {
   $("#settingTheme").value = s.theme;
   $("#settingAccent").value = s.accent;
   $("#settingEnterSend").checked = s.enterSend;
-  $("#providerPreset").value = providerForSettings(s);
-  $("#settingEndpoint").value = s.endpoint;
-  $("#settingApiKey").value = s.apiKey;
-  $("#settingModel").value = s.model;
+  renderProviderRows();
   $("#settingHeaders").value = s.headers;
   $("#settingSystemPrompt").value = s.systemPrompt;
   $("#settingTemperature").value = s.temperature;
@@ -2546,16 +2652,20 @@ function readSettingsForm() {
     throw new Error("Custom headers ต้องเป็น JSON Object ที่ถูกต้อง");
   }
 
+  const providers = collectProvidersFromForm();
+  const first = providers.find(p => p.enabled) || providers[0] || {};
+
   return {
     appName: $("#settingAppName").value.trim() || DEFAULT_SETTINGS.appName,
     userName: $("#settingUserName").value.trim() || DEFAULT_SETTINGS.userName,
     theme: $("#settingTheme").value,
     accent: $("#settingAccent").value,
     enterSend: $("#settingEnterSend").checked,
-    provider: $("#providerPreset").value,
-    endpoint: $("#settingEndpoint").value.trim(),
-    apiKey: $("#settingApiKey").value.trim(),
-    model: $("#settingModel").value.trim(),
+    providers: providers,
+    provider: first.presetId || "custom",
+    endpoint: first.endpoint || "",
+    apiKey: first.apiKey || "",
+    model: first.model || "",
     headers: JSON.stringify(customHeaders, null, 2),
     systemPrompt: $("#settingSystemPrompt").value.trim(),
     temperature: Number($("#settingTemperature").value),
@@ -2593,13 +2703,14 @@ function customHeadersObject() {
   }
 }
 
-function buildRequestHeaders() {
+function buildRequestHeaders(providerLike) {
+  const key = providerLike ? providerLike.apiKey : state.settings.apiKey;
   const headers = {
     "Content-Type": "application/json",
     ...customHeadersObject()
   };
-  if (state.settings.apiKey) {
-    headers.Authorization = "Bearer " + state.settings.apiKey;
+  if (key) {
+    headers.Authorization = "Bearer " + key;
   }
   return headers;
 }
@@ -2648,7 +2759,11 @@ function buildSystemPrompt() {
     const current = githubRepoSelected()
       ? `ตอนนี้รีโพที่เลือกอยู่คือ "${state.settings.githubOwner}/${state.settings.githubRepo}" (branch "${state.settings.githubBranch || "main"}")`
       : "ตอนนี้ยังไม่ได้เลือกรีโพใดไว้";
-    parts.push(`คุณเชื่อมต่อกับ GitHub REST API โดยตรงจากเบราว์เซอร์นี้แล้วผ่าน Personal Access Token ที่ผู้ใช้ตั้งค่าไว้ คุณมีเครื่องมือจริงที่เรียกใช้ได้ทันที ไม่มีคิว ไม่มี Agent ตัวกลาง และไม่ต้องรอใครทำอะไรให้ก่อน ได้แก่ github_list_repositories (ดูรีโพทั้งหมดที่ Token เข้าถึงได้ ทั้งของผู้ใช้และองค์กร รวมถึงรีโพ private), github_select_repository (เลือกรีโพและ branch เป้าหมาย ต้องเรียกก่อนใช้เครื่องมือไฟล์ทุกครั้งที่จะทำงานกับรีโพใหม่หรือรีโพที่ต่างจากที่เลือกไว้), github_list_files, github_read_file, github_search_code, github_list_commits, github_write_file (เขียนลง Workspace Preview ก่อน ยังไม่ commit จริง) และ github_publish_workspace (ส่งออกไป commit จริงเมื่อผู้ใช้สั่งเท่านั้น) ${current}\n\nกฎสำคัญ: ห้ามตอบว่า "ไม่มีเบราว์เซอร์", "ไม่มีอินเทอร์เน็ต", "ไม่มีเครื่องมือ", หรือขอให้ผู้ใช้ก็อปปี้เนื้อหาไฟล์มาวาง เพราะสิ่งเหล่านี้ไม่จริง คุณมีเครื่องมือเหล่านี้จริงและต้องเรียกใช้ทันทีเมื่อผู้ใช้พูดถึงรีโพ ลิงก์ GitHub หรือขอให้ดู/แก้โค้ด หากผู้ใช้พูดถึงรีโพที่ยังไม่ได้เลือก ให้เรียก github_list_repositories แล้วเลือกรีโพที่ตรงชื่อที่สุดด้วย github_select_repository โดยอัตโนมัติ ไม่ต้องถามผู้ใช้ก่อนว่าจะให้ดูไหม ยกเว้นชื่อกำกวมจริงๆ จนเลือกไม่ได้ หากผู้ใช้ขอแก้ไฟล์ ให้อ่านเนื้อหาปัจจุบันก่อนด้วย github_read_file แล้วเขียนฉบับเต็มลง Workspace Preview ด้วย github_write_file เพื่อให้ตรวจสอบก่อน ห้าม publish เองจนกว่าผู้ใช้จะสั่งให้ส่งออกและ commit ชัดเจน`);
+    parts.push(`คุณเชื่อมต่อกับ GitHub REST API โดยตรงจากเบราว์เซอร์นี้แล้วผ่าน Personal Access Token ที่ผู้ใช้ตั้งค่าไว้ คุณมีเครื่องมือจริงที่เรียกใช้ได้ทันที ไม่มีคิว ไม่มี Agent ตัวกลาง และไม่ต้องรอใครทำอะไรให้ก่อน ได้แก่ github_list_repositories, github_select_repository, github_list_files, github_read_file, github_search_code, github_list_commits, github_write_file และ github_publish_workspace (commit+push ขึ้น GitHub จริงทันที) ${current}
+
+โหมดการทำงาน: อัตโนมัติเต็มรูปแบบ ผู้ใช้ไม่ต้องการให้ถามซ้ำว่า "แบบนี้ดีไหม" หรือ "ต้องการให้ commit เลยไหม" — เมื่อได้รับคำสั่งที่ชัดเจนพอจะลงมือทำ ให้ทำงานจนจบในเทิร์นเดียวโดยไม่หยุดรอการยืนยัน: (1) เลือกรีโพด้วย github_select_repository ถ้ายังไม่ได้เลือกหรือคุยถึงรีโพอื่น (2) อ่านไฟล์ที่เกี่ยวข้องด้วย github_read_file เพื่อเข้าใจโค้ดเดิมก่อนแก้เสมอ (3) เขียนไฟล์ฉบับเต็มด้วย github_write_file (4) เรียก github_publish_workspace ต่อทันทีในเทิร์นเดียวกันเพื่อ commit+push จริง ห้ามหยุดค้างไว้แค่ขั้นตอน write แล้วรอให้ผู้ใช้พิมพ์สั่ง publish เอง เพราะผู้ใช้มีระบบย้อนกลับ/ประวัติเวอร์ชันฝั่งของเขาเองอยู่แล้วหากทำพลาด ใช้วิจารณญาณเลือกทางที่ดีที่สุดเองแล้วลงมือทำเลยแทนที่จะถามให้ผู้ใช้เลือกตัวเลือก ยกเว้นกรณีที่คำสั่งกำกวมจนตีความไม่ได้จริงๆ หรือเป็นการกระทำที่ย้อนกลับไม่ได้และเสี่ยงทำลายข้อมูลผู้ใช้จำนวนมาก (เช่นลบทั้งรีโพ) ค่อยถามยืนยันเฉพาะกรณีนั้น
+
+กฎสำคัญ: ห้ามตอบว่า "ไม่มีเบราว์เซอร์", "ไม่มีอินเทอร์เน็ต", "ไม่มีเครื่องมือ", หรือขอให้ผู้ใช้ก็อปปี้เนื้อหาไฟล์มาวาง เพราะสิ่งเหล่านี้ไม่จริง คุณมีเครื่องมือเหล่านี้จริงและต้องเรียกใช้ทันทีเมื่อผู้ใช้พูดถึงรีโพ ลิงก์ GitHub หรือขอให้ดู/แก้โค้ด หากผู้ใช้พูดถึงรีโพที่ยังไม่ได้เลือก ให้เรียก github_list_repositories แล้วเลือกรีโพที่ตรงชื่อที่สุดด้วย github_select_repository โดยอัตโนมัติ ไม่ต้องถามผู้ใช้ก่อนว่าจะให้ดูไหม ยกเว้นชื่อกำกวมจริงๆ จนเลือกไม่ได้ หลังทำงานเสร็จให้สรุปสั้นๆ ว่าทำอะไรไปบ้างและ commit ไหนบ้าง ไม่ต้องอธิบายยืดยาว`);
   } else {
     parts.push(`คุณยังไม่ได้เชื่อมต่อกับ GitHub เพราะผู้ใช้ยังไม่ได้กรอก GitHub Personal Access Token ในหน้าตั้งค่า ถ้าผู้ใช้ขอให้อ่าน แก้ไข หรือดูโค้ดในรีโพ GitHub ใดๆ ห้ามแกล้งทำเป็นดึงข้อมูลหรือ "กำลังประมวลผล" และห้ามอ้างว่าไม่มีเบราว์เซอร์หรืออินเทอร์เน็ตเป็นสาเหตุ ให้บอกตรงๆ ว่า: ต้องเปิดปุ่มตั้งค่า (รูปเฟือง) แล้วไปแท็บ "GitHub (Direct API)" กรอก Personal Access Token (แนะนำ Fine-grained token ของ GitHub) ก่อน จากนั้นจะสามารถให้คุณอ่าน/แก้/ค้นหาไฟล์ และดูรีโพทั้งหมดที่ Token เข้าถึงได้ทันทีโดยไม่ต้องระบุ owner/repo ล่วงหน้า`);
   }
@@ -2731,9 +2846,18 @@ async function sendMessage() {
   await generateAssistantResponse(chat);
 }
 
+function activeProviderChain() {
+  return (state.settings.providers || []).filter(p => p.enabled !== false && p.endpoint && p.model);
+}
+
+function providerLabel(p) {
+  return p.label || PROVIDER_PRESETS[p.presetId]?.label || p.presetId || p.endpoint;
+}
+
 async function generateAssistantResponse(chat) {
-  if (!state.settings.endpoint || !state.settings.model) {
-    toast("กรุณาตั้งค่า Endpoint และชื่อโมเดลก่อน", "error");
+  const providerChain = activeProviderChain();
+  if (!providerChain.length) {
+    toast("กรุณาตั้งค่าผู้ให้บริการ AI อย่างน้อย 1 อันดับก่อน", "error");
     openSettings("connection");
     return;
   }
@@ -2756,16 +2880,53 @@ async function generateAssistantResponse(chat) {
 
   const useTools = githubReady();
   const apiMessages = buildApiMessages(chat, chat.messages.length - 1);
-  if (useTools) assistantMessage.directExecution = {status: "running", events: []};
+  if (useTools || providerChain.length > 1) assistantMessage.directExecution = {status: "running", events: []};
+
+  let providerIndex = 0;
+  async function fetchFromChain(requestBody) {
+    while (providerIndex < providerChain.length) {
+      const provider = providerChain[providerIndex];
+      const body = {...requestBody, model: provider.model};
+      let response, networkError;
+      try {
+        response = await fetch(provider.endpoint, {
+          method: "POST",
+          headers: buildRequestHeaders(provider),
+          body: JSON.stringify(body),
+          signal: state.abortController.signal
+        });
+      } catch (err) { networkError = err; }
+
+      if (networkError?.name === "AbortError") throw networkError;
+      if (response && response.ok) return response;
+
+      let details = "";
+      if (response) {
+        try { const errorJson = await response.json(); details = errorJson?.error?.message || JSON.stringify(errorJson); }
+        catch { try { details = await response.text(); } catch { details = response.statusText; } }
+      } else {
+        details = networkError?.message || "เชื่อมต่อไม่สำเร็จ";
+      }
+      if (assistantMessage.directExecution) {
+        assistantMessage.directExecution.events.push({text: `${providerLabel(provider)}: ${details}`, kind: "err"});
+        renderChat();
+      }
+      providerIndex += 1;
+      if (providerIndex < providerChain.length && assistantMessage.directExecution) {
+        assistantMessage.directExecution.events.push({text: `กำลังสลับไปใช้ผู้ให้บริการอันดับถัดไป: ${providerLabel(providerChain[providerIndex])}`, kind: ""});
+        renderChat();
+      }
+    }
+    throw new Error("ผู้ให้บริการ AI ทุกอันดับที่ตั้งค่าไว้เชื่อมต่อไม่สำเร็จ กรุณาตรวจสอบ API Key/Endpoint ในตั้งค่า");
+  }
 
   try {
     let iterations = 0;
     while (true) {
       iterations += 1;
-      if (iterations > 8) throw new Error("ทำงานวนซ้ำหลายรอบเกินไป (เกิน 8 ครั้ง) จึงหยุดเพื่อความปลอดภัย");
+      if (iterations > 25) throw new Error("ทำงานวนซ้ำหลายรอบเกินไป (เกิน 25 ครั้ง) จึงหยุดเพื่อความปลอดภัย");
 
       const requestBody = {
-        model: state.settings.model,
         messages: apiMessages,
         temperature: state.settings.temperature,
         max_tokens: state.settings.maxTokens,
@@ -2776,23 +2937,7 @@ async function generateAssistantResponse(chat) {
         requestBody.tool_choice = "auto";
       }
 
-      const response = await fetch(state.settings.endpoint, {
-        method: "POST",
-        headers: buildRequestHeaders(),
-        body: JSON.stringify(requestBody),
-        signal: state.abortController.signal
-      });
-
-      if (!response.ok) {
-        let details = "";
-        try {
-          const errorJson = await response.json();
-          details = errorJson?.error?.message || JSON.stringify(errorJson);
-        } catch {
-          details = await response.text();
-        }
-        throw new Error(`API ${response.status}: ${details || response.statusText}`);
-      }
+      const response = await fetchFromChain(requestBody);
 
       if (!useTools && state.settings.stream && response.body) {
         assistantMessage.status = "streaming";
@@ -2811,15 +2956,21 @@ async function generateAssistantResponse(chat) {
           const name = call.function?.name;
           let args = {};
           try { args = JSON.parse(call.function?.arguments || "{}"); } catch {}
-          assistantMessage.directExecution.events.push(githubToolLabel(name));
+          const argsPreview = Object.keys(args).length
+            ? Object.entries(args).map(([k, v]) => `${k}=${JSON.stringify(String(v).length > 60 ? String(v).slice(0, 60) + "…" : v)}`).join(" ")
+            : "";
+          assistantMessage.directExecution.events.push({text: `${name}(${argsPreview})`, kind: ""});
           renderChat();
           let resultPayload;
           try {
             resultPayload = await executeGithubTool(name, args);
+            const summary = JSON.stringify(resultPayload).slice(0, 140);
+            assistantMessage.directExecution.events.push({text: `${githubToolLabel(name)} — ${summary}`, kind: "ok"});
           } catch (toolError) {
             resultPayload = {error: toolError.message};
-            assistantMessage.directExecution.events.push(`ผิดพลาด: ${toolError.message}`);
+            assistantMessage.directExecution.events.push({text: toolError.message, kind: "err"});
           }
+          renderChat();
           apiMessages.push({role: "tool", tool_call_id: call.id, content: JSON.stringify(resultPayload).slice(0, 12000)});
         }
         chat.updatedAt = Date.now();
@@ -3081,47 +3232,49 @@ function initializeSpeechRecognition() {
   state.recognition = recognition;
 }
 
-async function testConnection() {
-  let temporary;
-  try {
-    temporary = readSettingsForm();
-  } catch (error) {
-    toast(error.message, "error");
+async function testProviderRow(rowEl) {
+  const btn = rowEl.querySelector(".provider-test");
+  const resultEl = rowEl.querySelector(".provider-test-result");
+  const provider = {
+    endpoint: rowEl.querySelector(".provider-endpoint").value.trim(),
+    model: rowEl.querySelector(".provider-model").value.trim(),
+    apiKey: rowEl.querySelector(".provider-key").value.trim()
+  };
+  if (!provider.endpoint || !provider.model) {
+    resultEl.textContent = "กรุณากรอก Endpoint และชื่อโมเดลก่อน";
+    resultEl.style.color = "var(--danger, #e5484d)";
     return;
   }
-
-  const old = state.settings;
-  state.settings = temporary;
-  $("#testConnectionButton").disabled = true;
-  $("#testConnectionButton").textContent = "กำลังทดสอบ...";
-
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = "กำลังทดสอบ...";
+  resultEl.textContent = "";
   try {
-    const response = await fetch(temporary.endpoint, {
+    const response = await fetch(provider.endpoint, {
       method: "POST",
-      headers: buildRequestHeaders(),
+      headers: buildRequestHeaders(provider),
       body: JSON.stringify({
-        model: temporary.model,
-        messages: [{role:"user", content:"Reply with OK only."}],
+        model: provider.model,
+        messages: [{role: "user", content: "Reply with OK only."}],
         temperature: 0,
         max_tokens: 8,
         stream: false
       })
     });
-
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`HTTP ${response.status}: ${text.slice(0,250)}`);
+      throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
     }
-
     const json = await response.json();
     extractResponseText(json);
-    toast("เชื่อมต่อ AI สำเร็จ");
+    resultEl.textContent = "✓ เชื่อมต่อสำเร็จ";
+    resultEl.style.color = "#3fb950";
   } catch (error) {
-    toast("ทดสอบไม่สำเร็จ: " + error.message, "error");
+    resultEl.textContent = "✗ " + error.message;
+    resultEl.style.color = "var(--danger, #e5484d)";
   } finally {
-    state.settings = old;
-    $("#testConnectionButton").disabled = false;
-    $("#testConnectionButton").textContent = "ทดสอบการเชื่อมต่อ";
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 }
 
@@ -3130,7 +3283,12 @@ async function exportData() {
     application: "NOVA Chat Single File",
     version: 1,
     exportedAt: new Date().toISOString(),
-    settings: {...state.settings, apiKey: "", githubToken: ""},
+    settings: {
+      ...state.settings,
+      apiKey: "",
+      githubToken: "",
+      providers: (state.settings.providers || []).map(p => ({...p, apiKey: ""}))
+    },
     chats: state.chats
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
@@ -3155,10 +3313,16 @@ async function importDataFile(file) {
     }
 
     if (data.settings) {
+      const importedProviders = Array.isArray(data.settings.providers) ? data.settings.providers : [];
+      const mergedProviders = importedProviders.map(p => {
+        const existing = (state.settings.providers || []).find(existingP => existingP.id === p.id);
+        return {...p, apiKey: existing?.apiKey || p.apiKey || ""};
+      });
       state.settings = {
         ...state.settings,
         ...data.settings,
-        apiKey: state.settings.apiKey
+        apiKey: state.settings.apiKey,
+        providers: mergedProviders.length ? mergedProviders : state.settings.providers
       };
       persistSettings();
       applySettings();
@@ -3340,8 +3504,45 @@ function bindEvents() {
       toast("เขียนไฟล์ลง Workspace Preview แล้ว");
     } catch (e) { toast(e.message, "error"); }
   });
-  $("#providerPreset").addEventListener("change", event => applyProviderPreset(event.target.value));
-  $("#testConnectionButton").addEventListener("click", testConnection);
+  $("#addProviderButton").addEventListener("click", () => {
+    state.settings.providers = collectProvidersFromForm();
+    state.settings.providers.push({id: uid("prov"), presetId: "custom", label: "", endpoint: "", model: "", apiKey: "", enabled: true});
+    renderProviderRows();
+  });
+
+  $("#providerRows").addEventListener("click", (event) => {
+    const row = event.target.closest(".provider-row");
+    if (!row) return;
+    const rows = [...$("#providerRows").querySelectorAll(".provider-row")];
+    const index = rows.indexOf(row);
+
+    if (event.target.closest(".provider-test")) {
+      testProviderRow(row);
+    } else if (event.target.closest(".provider-remove")) {
+      state.settings.providers = collectProvidersFromForm().filter((_, i) => i !== index);
+      renderProviderRows();
+    } else if (event.target.closest(".provider-up") && index > 0) {
+      const list = collectProvidersFromForm();
+      [list[index - 1], list[index]] = [list[index], list[index - 1]];
+      state.settings.providers = list;
+      renderProviderRows();
+    } else if (event.target.closest(".provider-down") && index < rows.length - 1) {
+      const list = collectProvidersFromForm();
+      [list[index + 1], list[index]] = [list[index], list[index + 1]];
+      state.settings.providers = list;
+      renderProviderRows();
+    }
+  });
+
+  $("#providerRows").addEventListener("change", (event) => {
+    const row = event.target.closest(".provider-row");
+    if (!row) return;
+    if (event.target.classList.contains("provider-enabled")) {
+      row.classList.toggle("disabled", !event.target.checked);
+    } else if (event.target.classList.contains("provider-preset")) {
+      applyProviderPreset(event.target.value, row);
+    }
+  });
 
   $$(".settings-tab").forEach(tab => {
     tab.addEventListener("click", () => switchSettingsPage(tab.dataset.page));
