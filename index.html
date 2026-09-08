@@ -2163,6 +2163,22 @@ async function githubListCommits(branch) {
   return (data || []).map(c => ({sha: c.sha.slice(0,7), message: c.commit.message, author: c.commit.author?.name, date: c.commit.author?.date}));
 }
 
+const SOCIAL_TOOLS = [
+  {type: "function", function: {name: "social_list_accounts", description: "แสดงบัญชี Facebook Page/TikTok ที่ผู้ใช้เชื่อมต่อไว้ โดยไม่เปิดเผย access token", parameters: {type: "object", properties: {}}}},
+  {type: "function", function: {name: "facebook_publish_post", description: "โพสต์ข้อความไปยัง Facebook Page ที่เชื่อมต่อไว้ ใช้เฉพาะเมื่อผู้ใช้สั่งโพสต์อย่างชัดเจนเท่านั้น ห้ามขอหรือแสดง token", parameters: {type: "object", properties: {connection_id: {type: "string", description: "id จาก social_list_accounts"}, body: {type: "string", description: "ข้อความที่จะโพสต์"}}, required: ["connection_id", "body"]}}}
+];
+function socialToolsReady() {
+  return Boolean(state.settings.supabaseUrl && state.settings.supabaseAnonKey);
+}
+async function executeSocialTool(name, args = {}) {
+  if (name === "social_list_accounts") return await socialFunction("list");
+  if (name === "facebook_publish_post") {
+    if (!String(args.body || "").trim()) throw new Error("ข้อความโพสต์ว่าง");
+    if (!String(args.connection_id || "").trim()) throw new Error("ต้องระบุบัญชีจาก social_list_accounts ก่อน");
+    return await socialFunction("publish", "facebook", "", {connection_id: args.connection_id, body: args.body});
+  }
+  throw new Error("ไม่รู้จัก social tool: " + name);
+}
 const GITHUB_TOOLS = [
   {type: "function", function: {name: "github_list_repositories", description: "แสดงรายการรีโพสิทอรี GitHub ทั้งหมดที่ Token ปัจจุบันเข้าถึงได้ (ทั้งของผู้ใช้และองค์กร) เรียกใช้เมื่อผู้ใช้พูดถึงรีโพ/โปรเจกต์ที่ยังไม่ได้เลือกไว้ หรือไม่แน่ใจว่ามีรีโพอะไรบ้าง", parameters: {type: "object", properties: {}}}},
   {type: "function", function: {name: "github_select_repository", description: "เลือกรีโพสิทอรีเป้าหมายที่จะอ่าน/แก้ไขต่อจากนี้ ต้องเรียกก่อนใช้เครื่องมือไฟล์อื่นๆ ทุกครั้งที่ต้องการเปลี่ยนไปทำงานกับรีโพอื่น", parameters: {type: "object", properties: {owner: {type: "string", description: "เจ้าของรีโพ เช่น username หรือชื่อองค์กร"}, repo: {type: "string", description: "ชื่อรีโพสิทอรี"}, branch: {type: "string", description: "branch ที่ต้องการทำงานด้วย ถ้าไม่ระบุจะใช้ default branch ของรีโพ"}}, required: ["owner", "repo"]}}},
@@ -3050,7 +3066,9 @@ async function generateAssistantResponse(chat, task = null) {
   renderChat();
 
   setTaskStep(task, 1);
-  const useTools = githubReady();
+  const useGithubTools = githubReady();
+  const useSocialTools = socialToolsReady();
+  const useTools = useGithubTools || useSocialTools;
   const apiMessages = buildApiMessages(chat, chat.messages.length - 1);
   if (useTools || providerChain.length > 1) assistantMessage.directExecution = {status: "running", events: []};
 
@@ -3147,7 +3165,7 @@ async function generateAssistantResponse(chat, task = null) {
         stream: useTools ? false : state.settings.stream
       };
       if (useTools) {
-        requestBody.tools = GITHUB_TOOLS;
+        requestBody.tools = [ ...(useGithubTools ? GITHUB_TOOLS : []), ...(useSocialTools ? SOCIAL_TOOLS : []) ];
         requestBody.tool_choice = "auto";
       }
 
@@ -3178,7 +3196,9 @@ async function generateAssistantResponse(chat, task = null) {
           renderChat();
           let resultPayload;
           try {
-            resultPayload = await executeGithubTool(name, args);
+            resultPayload = SOCIAL_TOOLS.some(tool => tool.function.name === name)
+              ? await executeSocialTool(name, args)
+              : await executeGithubTool(name, args);
             const summary = JSON.stringify(resultPayload).slice(0, 140);
             assistantMessage.directExecution.events.push({text: `${githubToolLabel(name)} — ${summary}`, kind: "ok"});
           } catch (toolError) {

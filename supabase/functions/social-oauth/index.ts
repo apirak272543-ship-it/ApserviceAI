@@ -95,12 +95,27 @@ async function callback(req: Request, provider: string) {
   } catch (e) { return redirect(`${appUrl}?social_oauth=error&message=${encodeURIComponent(e instanceof Error ? e.message : "เชื่อมต่อไม่สำเร็จ")}`); }
 }
 
+async function serviceRoleUserId(req: Request, action: string, body: any) {
+  const auth = req.headers.get("authorization") || "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!serviceKey || auth !== `Bearer ${serviceKey}`) return null;
+  if (!["agent_list", "agent_publish"].includes(action)) return null;
+  const userId = String(body?.user_id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) throw new Error("Invalid user_id");
+  return userId;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url); const action = url.searchParams.get("action") || "list"; const provider = url.searchParams.get("provider") || "";
   if (action === "callback") return callback(req, provider);
-  const user = await userFromRequest(req); if (!user) return json({ error: "Unauthorized" }, 401);
   try {
+    const body = ["agent_list", "agent_publish"].includes(action) ? await req.json() : null;
+    const agentUserId = await serviceRoleUserId(req, action, body);
+    const user = agentUserId ? { id: agentUserId } : await userFromRequest(req);
+    if (!user) return json({ error: "Unauthorized" }, 401);
+    if (action === "agent_list") { const { data, error } = await admin.from("social_connections").select("id,provider,provider_account_id,display_name,token_expires_at,scopes,metadata,created_at,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }); if (error) throw error; return json({ data }); }
+    if (action === "agent_publish") return json(await publish(provider, user.id, body));
     if (action === "start") return json(await start(provider, user.id));
     if (action === "publish") return json(await publish(provider, user.id, await req.json()));
     if (action === "list") { const { data, error } = await admin.from("social_connections").select("id,provider,provider_account_id,display_name,token_expires_at,scopes,metadata,created_at,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }); if (error) throw error; return json({ data }); }
