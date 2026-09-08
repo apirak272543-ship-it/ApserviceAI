@@ -436,35 +436,35 @@ body.sidebar-collapsed #sidebar {
   overflow-wrap: anywhere;
   user-select: text;
 }
-.agent-workflow {
+.direct-execution {
   margin: 14px 0 4px;
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface-2);
 }
-.agent-workflow-head {
+.direct-execution-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 10px;
 }
-.agent-workflow-title { font-weight: 750; font-size: 14px; }
-.agent-workflow-state { color: var(--muted); font-size: 12px; }
-.agent-workflow-bar { height: 5px; overflow: hidden; border-radius: 99px; background: var(--border); }
-.agent-workflow-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .45s ease; }
-.agent-workflow.running .agent-workflow-bar > span { animation: workflow-pulse 1.4s ease-in-out infinite; }
-.agent-workflow-steps { display: grid; gap: 7px; margin-top: 12px; }
-.agent-workflow-step { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
-.agent-workflow-step.done, .agent-workflow-step.current { color: var(--text); }
-.agent-workflow-dot { width: 18px; height: 18px; display: grid; place-items: center; flex: 0 0 18px; border: 1px solid var(--border); border-radius: 50%; font-size: 10px; }
-.agent-workflow-step.done .agent-workflow-dot { color: #fff; background: var(--accent); border-color: var(--accent); }
-.agent-workflow-step.current .agent-workflow-dot { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); animation: workflow-pulse 1.4s ease-in-out infinite; }
-.agent-workflow-events { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
-.agent-workflow-event { display: flex; gap: 7px; }
-.agent-workflow-event::before { content: "•"; color: var(--accent); }
-@keyframes workflow-pulse { 50% { opacity: .55; } }
+.direct-execution-title { font-weight: 750; font-size: 14px; }
+.direct-execution-state { color: var(--muted); font-size: 12px; }
+.direct-execution-bar { height: 5px; overflow: hidden; border-radius: 99px; background: var(--border); }
+.direct-execution-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .45s ease; }
+.direct-execution.running .direct-execution-bar > span { animation: direct-execution-pulse 1.4s ease-in-out infinite; }
+.direct-execution-steps { display: grid; gap: 7px; margin-top: 12px; }
+.direct-execution-step { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
+.direct-execution-step.done, .direct-execution-step.current { color: var(--text); }
+.direct-execution-dot { width: 18px; height: 18px; display: grid; place-items: center; flex: 0 0 18px; border: 1px solid var(--border); border-radius: 50%; font-size: 10px; }
+.direct-execution-step.done .direct-execution-dot { color: #fff; background: var(--accent); border-color: var(--accent); }
+.direct-execution-step.current .direct-execution-dot { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); animation: direct-execution-pulse 1.4s ease-in-out infinite; }
+.direct-execution-events { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.direct-execution-event { display: flex; gap: 7px; }
+.direct-execution-event::before { content: "•"; color: var(--accent); }
+@keyframes direct-execution-pulse { 50% { opacity: .55; } }
 .message-content > :first-child {
   margin-top: 0;
 }
@@ -1589,8 +1589,8 @@ html[data-theme="dark"] .alert {
       <div class="button-row"><button class="primary-button" id="saveSkillButton">บันทึก Skill</button><button class="secondary-button" id="loadSkillsButton">รีเฟรชรายการ</button></div>
       <div id="skillsList" class="form-help"></div>
 
-      <h3>GitHub (ทำงานตรงจากเบราว์เซอร์ ไม่ผ่านคิว)</h3>
-      <div class="alert">เชื่อมต่อ GitHub API ตรงจากเบราว์เซอร์เลย ไม่ผ่าน Supabase, คิวงาน หรือ Agent ตัวกลางใดๆ ต้องใช้ Personal Access Token (แนะนำ Fine-grained token จำกัดสิทธิ์เฉพาะรีโพนี้) — Token จะถูกเก็บไว้ในเครื่องนี้เท่านั้น อย่าแชร์สกรีนช็อตหรือไฟล์ export ที่มี Token ติดไปด้วย</div>
+      <h3>GitHub (Direct API — ทำงานทันที)</h3>
+      <div class="alert">เชื่อมต่อ GitHub API ตรงจากเบราว์เซอร์เลย ไม่ผ่าน Supabase, ฐานข้อมูลงาน, คิวงาน หรือ Agent ตัวกลางใดๆ ต้องใช้ Personal Access Token (แนะนำ Fine-grained token จำกัดสิทธิ์เฉพาะรีโพนี้) — Token จะถูกเก็บไว้ในเครื่องนี้เท่านั้น อย่าแชร์สกรีนช็อตหรือไฟล์ export ที่มี Token ติดไปด้วย</div>
       <div class="form-row">
         <label for="githubToken">GitHub Personal Access Token</label>
         <input class="text-input" id="githubToken" type="password" autocomplete="off" placeholder="github_pat_...">
@@ -1599,11 +1599,11 @@ html[data-theme="dark"] .alert {
       <div class="form-row"><label for="githubRepo">ชื่อรีโพสิทอรี</label><input class="text-input" id="githubRepo" placeholder="เช่น my-project"></div>
       <div class="form-row"><label for="githubBranch">Branch</label><input class="text-input" id="githubBranch" placeholder="main"></div>
       <div class="button-row"><button class="secondary-button" id="githubTestButton">ทดสอบการเชื่อมต่อ GitHub</button></div>
-      <div class="form-help">ตั้งค่าครบแล้วแค่คุยในแชตตามปกติ เช่น "ช่วยอ่านไฟล์ index.html แล้วแก้บั๊ก X" AI จะเรียกใช้เครื่องมือ GitHub เอง (อ่าน/แก้ไฟล์/ดู commit/ดูผล Actions) และ commit ให้ทันที ไม่ต้องรอคิวหรือ Runner ภายนอก</div>
+      <div class="form-help">ตั้งค่าครบแล้วแค่คุยในแชตตามปกติ เช่น "ช่วยอ่านไฟล์ index.html แล้วแก้บั๊ก X" AI จะเรียกใช้เครื่องมือ GitHub เอง (อ่าน/แก้ไฟล์/ดู commit) และ commit ให้ทันที โดยไม่ใช้คิวหรือ Runner ภายนอก</div>
 
       <h3>แก้ไฟล์ด้วยตนเอง</h3>
       <div class="form-row"><label for="githubPath">Path ไฟล์</label><input class="text-input" id="githubPath" placeholder="index.html"></div>
-      <div class="button-row"><button class="secondary-button" id="githubListButton">แสดงรายการไฟล์</button><button class="secondary-button" id="githubReadButton">อ่านไฟล์</button><button class="secondary-button" id="githubRunsButton">ดูผล Actions</button></div>
+      <div class="button-row"><button class="secondary-button" id="githubListButton">แสดงรายการไฟล์</button><button class="secondary-button" id="githubReadButton">อ่านไฟล์</button></div>
       <div class="form-row"><label for="githubContent">เนื้อหาไฟล์สำหรับเขียน/แก้ไข</label><textarea class="textarea-input" id="githubContent" spellcheck="false"></textarea></div>
       <div class="form-row"><label for="githubCommitMessage">ข้อความ Commit</label><input class="text-input" id="githubCommitMessage" value="Update from NOVA Chat"></div>
       <div class="button-row"><button class="primary-button" id="githubWriteButton">เขียนไฟล์และ Commit</button></div>
@@ -1794,7 +1794,7 @@ async function dbSaveChat(chat) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const request = db.transaction(CHAT_STORE, "readwrite").objectStore(CHAT_STORE).put(chat);
-    request.onsuccess = () => resolve();
+    request.onsuccess = () => { syncChatToCloud(chat); resolve(); };
     request.onerror = () => reject(request.error);
   });
 }
@@ -1815,6 +1815,14 @@ async function dbClearChats() {
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
+}
+
+function chatCloudConfigured() { return /^https:\/\/[^\s]+\.supabase\.co\/?$/.test(state.settings.supabaseUrl || "") && Boolean(state.settings.supabaseAnonKey); }
+function chatCloudSession() { try { return JSON.parse(localStorage.getItem("nova_supabase_session") || "null"); } catch { return null; } }
+async function syncChatToCloud(chat) {
+  const session = chatCloudSession();
+  if (!chatCloudConfigured() || !session?.access_token || !session.user?.id) return;
+  try { await fetch(state.settings.supabaseUrl.replace(/\/$/, "") + "/rest/v1/chat_histories?on_conflict=id", {method:"POST", headers:{"Content-Type":"application/json", apikey:state.settings.supabaseAnonKey, Authorization:"Bearer " + session.access_token, Prefer:"resolution=merge-duplicates,return=minimal"}, body:JSON.stringify({id:chat.id, user_id:session.user.id, title:chat.title, chat, updated_at:new Date(chat.updatedAt).toISOString()})}); } catch (error) { console.warn("Optional chat sync skipped", error); }
 }
 
 function socialConfigured() { return /^https:\/\/[^\s]+\.supabase\.co\/?$/.test(state.settings.supabaseUrl || "") && Boolean(state.settings.supabaseAnonKey); }
@@ -1953,30 +1961,12 @@ async function githubListCommits(branch) {
   return (data || []).map(c => ({sha: c.sha.slice(0,7), message: c.commit.message, author: c.commit.author?.name, date: c.commit.author?.date}));
 }
 
-async function githubListWorkflowRuns() {
-  const data = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/actions/runs?per_page=5`);
-  return (data.workflow_runs || []).map(run => ({name: run.name, status: run.status, conclusion: run.conclusion, url: run.html_url, created_at: run.created_at}));
-}
-
-async function githubDispatchWorkflow({workflow_file, branch}) {
-  if (!workflow_file) throw new Error("กรุณาระบุชื่อไฟล์ workflow เช่น test.yml");
-  const b = branch || state.settings.githubBranch || "main";
-  await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/actions/workflows/${encodeURIComponent(workflow_file)}/dispatches`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ref: b})
-  });
-  return {dispatched: true, workflow_file, ref: b};
-}
-
 const GITHUB_TOOLS = [
   {type: "function", function: {name: "github_list_files", description: "แสดงรายการไฟล์ทั้งหมดในรีโพ GitHub ที่ตั้งค่าไว้", parameters: {type: "object", properties: {branch: {type: "string", description: "ชื่อ branch (ถ้าไม่ระบุจะใช้ branch ที่ตั้งค่าไว้)"}}, required: []}}},
   {type: "function", function: {name: "github_read_file", description: "อ่านเนื้อหาไฟล์จากรีโพ GitHub", parameters: {type: "object", properties: {path: {type: "string", description: "path ของไฟล์ในรีโพ"}, branch: {type: "string"}}, required: ["path"]}}},
   {type: "function", function: {name: "github_write_file", description: "สร้างหรือแก้ไขไฟล์ในรีโพ GitHub แล้ว commit ทันที", parameters: {type: "object", properties: {path: {type: "string"}, content: {type: "string", description: "เนื้อหาไฟล์ทั้งหมดหลังแก้ไข"}, message: {type: "string", description: "ข้อความ commit"}, branch: {type: "string"}}, required: ["path", "content"]}}},
   {type: "function", function: {name: "github_search_code", description: "ค้นหาโค้ดภายในรีโพ GitHub", parameters: {type: "object", properties: {query: {type: "string"}}, required: ["query"]}}},
-  {type: "function", function: {name: "github_list_commits", description: "แสดงประวัติ commit ล่าสุดของ branch", parameters: {type: "object", properties: {branch: {type: "string"}}, required: []}}},
-  {type: "function", function: {name: "github_list_workflow_runs", description: "แสดงผลการรัน GitHub Actions ล่าสุด (เช่น ผล test/build)", parameters: {type: "object", properties: {}, required: []}}},
-  {type: "function", function: {name: "github_dispatch_workflow", description: "สั่งรัน GitHub Actions workflow (เช่น รัน test หรือ deploy)", parameters: {type: "object", properties: {workflow_file: {type: "string", description: "ชื่อไฟล์ workflow เช่น test.yml"}, branch: {type: "string"}}, required: ["workflow_file"]}}}
+  {type: "function", function: {name: "github_list_commits", description: "แสดงประวัติ commit ล่าสุดของ branch", parameters: {type: "object", properties: {branch: {type: "string"}}, required: []}}}
 ];
 
 function githubToolLabel(name) {
@@ -1985,9 +1975,7 @@ function githubToolLabel(name) {
     github_read_file: "กำลังอ่านไฟล์",
     github_write_file: "กำลังเขียนไฟล์และ commit",
     github_search_code: "กำลังค้นหาโค้ด",
-    github_list_commits: "กำลังอ่านประวัติ commit",
-    github_list_workflow_runs: "กำลังเช็คผล GitHub Actions",
-    github_dispatch_workflow: "กำลังสั่งรัน Workflow"
+    github_list_commits: "กำลังอ่านประวัติ commit"
   };
   return labels[name] || `กำลังใช้เครื่องมือ ${name}`;
 }
@@ -1999,8 +1987,6 @@ async function executeGithubTool(name, args = {}) {
     case "github_write_file": return await githubWriteFile(args);
     case "github_search_code": return await githubSearchCode(args.query);
     case "github_list_commits": return await githubListCommits(args.branch);
-    case "github_list_workflow_runs": return await githubListWorkflowRuns();
-    case "github_dispatch_workflow": return await githubDispatchWorkflow(args);
     default: throw new Error("ไม่รู้จักเครื่องมือ: " + name);
   }
 }
@@ -2287,14 +2273,14 @@ function messageActionButton(action, title, icon) {
   return `<button class="message-action" data-action="${action}" title="${title}">${icon}</button>`;
 }
 
-function renderAgentWorkflow(workflow) {
+function renderDirectExecution(workflow) {
   const failed = workflow.status === "error";
   const done = workflow.status === "done";
   const stateLabel = failed ? "เกิดข้อผิดพลาด" : done ? "เสร็จสิ้น" : "กำลังทำงาน...";
-  const events = (workflow.events || []).slice(-8).map(event => `<div class="agent-workflow-event">${escapeHtml(event)}</div>`).join("");
-  return `<section class="agent-workflow ${done || failed ? "" : "running"}">
-    <div class="agent-workflow-head"><span class="agent-workflow-title">GitHub Agent (ทำงานตรงจากเบราว์เซอร์)</span><span class="agent-workflow-state">${escapeHtml(stateLabel)}</span></div>
-    ${events ? `<div class="agent-workflow-events">${events}</div>` : ""}
+  const events = (workflow.events || []).slice(-8).map(event => `<div class="direct-execution-event">${escapeHtml(event)}</div>`).join("");
+  return `<section class="direct-execution ${done || failed ? "" : "running"}">
+    <div class="direct-execution-head"><span class="direct-execution-title">Direct GitHub Execution</span><span class="direct-execution-state">${escapeHtml(stateLabel)}</span></div>
+    ${events ? `<div class="direct-execution-events">${events}</div>` : ""}
   </section>`;
 }
 
@@ -2313,7 +2299,7 @@ function renderMessage(message) {
   } else {
     contentHtml = renderMarkdown(message.content || "");
   }
-  const workflowHtml = message.workflow ? renderAgentWorkflow(message.workflow) : "";
+  const directExecutionHtml = message.directExecution ? renderDirectExecution(message.directExecution) : "";
 
   const actions = [
     messageActionButton("copy", "คัดลอก", ICONS.copy),
@@ -2329,7 +2315,7 @@ function renderMessage(message) {
         <div class="message-author">${escapeHtml(name)}</div>
         ${renderAttachmentsHtml(message.attachments)}
         <div class="message-content">${contentHtml}</div>
-        ${workflowHtml}
+        ${directExecutionHtml}
         <div class="message-actions ${message.status === "error" ? "always" : ""}">${actions}</div>
       </div>
     </article>`;
@@ -2348,7 +2334,7 @@ function renderChat(options = {}) {
   updateSendButton();
 }
 
-function queueChatRender() {
+function scheduleChatRender() {
   if (state.renderQueued) return;
   state.renderQueued = true;
   requestAnimationFrame(() => {
@@ -2588,7 +2574,7 @@ function buildSystemPrompt() {
   }
 
   if (githubReady()) {
-    parts.push(`คุณมีเครื่องมือ github_list_files, github_read_file, github_write_file, github_search_code, github_list_commits, github_list_workflow_runs และ github_dispatch_workflow สำหรับทำงานกับรีโพ GitHub "${state.settings.githubOwner}/${state.settings.githubRepo}" (branch เริ่มต้น "${state.settings.githubBranch || "main"}") โดยตรงและทันที ไม่มีคิวหรือตัวกลางใดๆ ให้เรียกใช้เครื่องมือเหล่านี้เมื่อผู้ใช้ขอให้ดู แก้ไข หรือจัดการไฟล์/โค้ด/commit/ผลการรันในรีโพนี้ เมื่อแก้ไฟล์ ให้อ่านเนื้อหาปัจจุบันก่อนเสมอ แล้วเขียนไฟล์ฉบับเต็มกลับไป`);
+    parts.push(`คุณมีเครื่องมือ github_list_files, github_read_file, github_write_file, github_search_code และ github_list_commits สำหรับทำงานกับรีโพ GitHub "${state.settings.githubOwner}/${state.settings.githubRepo}" (branch เริ่มต้น "${state.settings.githubBranch || "main"}") โดยตรงและทันที ไม่มีคิวหรือตัวกลางใดๆ ให้เรียกใช้เครื่องมือเหล่านี้เมื่อผู้ใช้ขอให้ดู แก้ไข หรือจัดการไฟล์/โค้ด/commit ในรีโพนี้ เมื่อแก้ไฟล์ ให้อ่านเนื้อหาปัจจุบันก่อนเสมอ แล้วเขียนไฟล์ฉบับเต็มกลับไป`);
   }
 
   return parts.join("\n\n");
@@ -2694,7 +2680,7 @@ async function generateAssistantResponse(chat) {
 
   const useTools = githubReady();
   const apiMessages = buildApiMessages(chat, chat.messages.length - 1);
-  if (useTools) assistantMessage.workflow = {status: "running", events: []};
+  if (useTools) assistantMessage.directExecution = {status: "running", events: []};
 
   try {
     let iterations = 0;
@@ -2749,14 +2735,14 @@ async function generateAssistantResponse(chat) {
           const name = call.function?.name;
           let args = {};
           try { args = JSON.parse(call.function?.arguments || "{}"); } catch {}
-          assistantMessage.workflow.events.push(githubToolLabel(name));
+          assistantMessage.directExecution.events.push(githubToolLabel(name));
           renderChat();
           let resultPayload;
           try {
             resultPayload = await executeGithubTool(name, args);
           } catch (toolError) {
             resultPayload = {error: toolError.message};
-            assistantMessage.workflow.events.push(`ผิดพลาด: ${toolError.message}`);
+            assistantMessage.directExecution.events.push(`ผิดพลาด: ${toolError.message}`);
           }
           apiMessages.push({role: "tool", tool_call_id: call.id, content: JSON.stringify(resultPayload).slice(0, 12000)});
         }
@@ -2770,19 +2756,19 @@ async function generateAssistantResponse(chat) {
     }
 
     assistantMessage.status = "done";
-    if (assistantMessage.workflow) assistantMessage.workflow.status = "done";
+    if (assistantMessage.directExecution) assistantMessage.directExecution.status = "done";
     if (!assistantMessage.content.trim()) {
       assistantMessage.content = "API ส่งคำตอบว่างกลับมา";
     }
   } catch (error) {
     if (error.name === "AbortError") {
       assistantMessage.status = "done";
-      if (assistantMessage.workflow) assistantMessage.workflow.status = "done";
+      if (assistantMessage.directExecution) assistantMessage.directExecution.status = "done";
       if (!assistantMessage.content) assistantMessage.content = "หยุดการสร้างคำตอบแล้ว";
     } else {
       console.error(error);
       assistantMessage.status = "error";
-      if (assistantMessage.workflow) assistantMessage.workflow.status = "error";
+      if (assistantMessage.directExecution) assistantMessage.directExecution.status = "error";
       assistantMessage.content =
         "เชื่อมต่อ AI ไม่สำเร็จ: " + error.message +
         "\n\nโปรดตรวจสอบ Endpoint, API Key, ชื่อโมเดล, CORS และการเชื่อมต่ออินเทอร์เน็ต";
@@ -2822,13 +2808,13 @@ async function consumeStream(response, assistantMessage) {
         try {
           const json = JSON.parse(data);
           assistantMessage.content += extractDeltaText(json);
-          queueChatRender();
+          scheduleChatRender();
         } catch {}
       } else {
         try {
           const json = JSON.parse(trimmed);
           assistantMessage.content += extractDeltaText(json);
-          queueChatRender();
+          scheduleChatRender();
         } catch {}
       }
     }
@@ -3255,13 +3241,6 @@ function bindEvents() {
       const data = await githubReadFile($("#githubPath").value.trim(), $("#githubBranch").value.trim());
       $("#githubContent").value = data.content || "";
       toast("อ่านไฟล์สำเร็จ");
-    } catch (e) { toast(e.message, "error"); }
-  });
-  $("#githubRunsButton").addEventListener("click", async () => {
-    syncGithubSettingsFromForm();
-    try {
-      const runs = await githubListWorkflowRuns();
-      $("#githubOutput").textContent = JSON.stringify(runs, null, 2);
     } catch (e) { toast(e.message, "error"); }
   });
   $("#githubWriteButton").addEventListener("click", async () => {

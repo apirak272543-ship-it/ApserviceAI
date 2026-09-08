@@ -1,49 +1,48 @@
-# GitHub Agent via Supabase Edge Function
+# NOVA Chat: direct execution architecture
 
-ฟังก์ชัน `github-agent` ใช้ Supabase Auth เป็นตัวล็อกอิน และใช้ GitHub token ที่เก็บเป็น Supabase Secret เพื่ออ่าน/ค้นหา/แก้ไขไฟล์ และสั่ง GitHub Actions
+เวอร์ชันนี้ไม่ใช้ Supabase เป็นคิวงาน ไม่สร้าง task และไม่พึ่ง GitHub Actions, repository dispatch หรือ Runner ภายนอก
 
-## Secrets ที่ต้องมีใน Supabase
+## การทำงานหลัก
 
-- `GITHUB_TOKEN`: Fine-grained token จำกัดเฉพาะรีโพสิทอรีที่ต้องการ โดยต้องมี Contents: Read and write, Metadata: Read-only และ Actions: Read and write เพื่อส่ง `repository_dispatch`
-- `SUPABASE_SERVICE_ROLE_KEY`: ใช้ภายใน Edge Function เท่านั้น ห้ามใส่ในหน้าเว็บหรือ APK
+- แชตและประวัติแชตทำงานใน browser และเก็บใน IndexedDB เป็นหลัก
+- หากเปิดใช้งาน Supabase ให้ใช้เฉพาะตาราง `chat_histories` สำหรับซิงก์ประวัติแชตของผู้ใช้
+- GitHub เชื่อมต่อจาก browser โดยตรงผ่าน GitHub REST API ด้วย Fine-grained Personal Access Token ที่ผู้ใช้กรอกเอง
+- การอ่านไฟล์, ค้นหาโค้ด, แก้ไฟล์ และ commit เรียก GitHub API ทันทีใน session เดียว ไม่ผ่าน queue, Edge Function, Actions หรือ agent กลาง
+- token GitHub ถูกเก็บใน localStorage ของ browser ตามการตั้งค่าของผู้ใช้ ห้ามนำออกไปใส่ใน repository หรือส่งออกไฟล์ JSON
 
-## Deploy Function
+## Supabase schema ที่จำเป็นสำหรับแชต
 
-```bash
-supabase login
-supabase link --project-ref YOUR_PROJECT_REF
-supabase secrets set GITHUB_TOKEN=YOUR_GITHUB_TOKEN SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
-supabase functions deploy github-agent --no-verify-jwt
-```
+รันเฉพาะ `schema.sql` หากต้องการซิงก์ประวัติแชต โดย schema นี้สร้างเพียง `public.chat_histories` และมี RLS แยกตาม `auth.uid()`
 
-ฟังก์ชันตรวจสอบ Supabase JWT ภายในโค้ดเอง จึงใช้ `--no-verify-jwt` เพื่อให้ส่ง Authorization header เข้า function ได้
+ระบบสามารถทำงานแบบ local-only ได้เช่นกัน เพียงไม่ตั้งค่า Supabase URL/anon key
 
-## ส่งงานทันที
+## GitHub setup
 
-หน้า NOVA และ APK เรียก action `enqueue_task` ไปยัง Edge Function ฟังก์ชันจะบันทึกงานลง `tasks` แล้วส่ง GitHub `repository_dispatch` event ชื่อ `nova_task` ทำให้ Workflow เริ่มทันที ไม่ต้องรอ cron 5 นาที
+1. สร้าง Fine-grained Personal Access Token บน GitHub
+2. จำกัด repository ให้เหลือเฉพาะ repository ที่ต้องการ
+3. ให้สิทธิ์ `Contents: Read and write` และ `Metadata: Read-only`
+4. เปิด NOVA Settings > ข้อมูล > GitHub
+5. กรอก token, owner, repository และ branch
+6. กดทดสอบการเชื่อมต่อ
 
-```json
-{
-  "owner": "apirak272543-ship-it",
-  "repo": "ApserviceAI",
-  "branch": "main",
-  "action": "enqueue_task",
-  "title": "ตรวจสอบโปรเจกต์",
-  "prompt": "อ่านและตรวจสอบโปรเจกต์ โดยไม่ลบข้อมูล"
-}
-```
+ไม่ต้อง deploy Supabase Edge Function และไม่ต้องตั้งค่า `GITHUB_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` หรือ GitHub Actions secret สำหรับการทำงานหลัก
 
-## Actions ที่รองรับ
+## สิ่งที่ถอดออกจากสถาปัตยกรรมหลัก
+
+ฟีเจอร์ต่อไปนี้ไม่ถูกเรียกจาก `index.html` อีกต่อไป:
 
 - `enqueue_task`
-- `list_files`
-- `read_file`
-- `search_code`
-- `write_file`
-- `run_workflow`
-- `runs`
-- `codespace_status`
-- `codespace_start`
-- `codespace_stop`
+- ตาราง tasks, executions, test_results, commits และ tool_calls
+- repository dispatch
+- GitHub Actions workflow dispatch และ workflow run polling
+- Supabase Edge Function สำหรับ GitHub agent
 
-`write_file` จะอัปเดตไฟล์บน branch ที่ระบุโดยตรง และควรใช้ branch แยกสำหรับงานจริง
+ไฟล์ legacy ที่เกี่ยวกับ agent queue ถูกนำออกจาก repository เพื่อไม่ให้เกิดความสับสนกับเส้นทาง direct execution
+
+## ความปลอดภัย
+
+Direct browser execution ทำให้ token อยู่ในอุปกรณ์ของผู้ใช้ จึงควรใช้ Fine-grained token, จำกัด repository, ไม่ใช้บนเครื่องสาธารณะ และ revoke token เมื่อเลิกใช้งาน การ commit หรือการเปลี่ยนแปลงบน GitHub เป็นการเปลี่ยนแปลงภายนอกจริง ผู้ใช้ควรตรวจสอบเนื้อหาก่อนสั่งให้ AI เขียนไฟล์
+
+## Social Connections
+
+ส่วน Facebook/TikTok เป็นฟีเจอร์เสริมแยกจาก GitHub direct execution และมีการตั้งค่า OAuth ของตัวเองตาม `SOCIAL_SETUP.md` หากไม่ใช้ฟีเจอร์นี้ ไม่จำเป็นต้อง deploy `social-oauth` หรือรัน `social_schema.sql`
