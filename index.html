@@ -1004,6 +1004,15 @@ html[data-theme="dark"] #sendButton {
 .settings-tab.active {
   background: var(--surface-3);
 }
+.settings-section-card { margin: 0 0 18px; padding: 15px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); }
+.settings-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.settings-section-heading strong { font-size: 14px; }
+.settings-badge { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
+.provider-quick-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
+.provider-quick-grid .secondary-button { min-height: 36px; font-size: 12px; }
+.provider-endpoint[readonly] { color: var(--muted); background: var(--surface-3); cursor: not-allowed; }
+.settings-page[data-page="social"] h3:not(:first-child) { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+@media (max-width: 700px) { .settings-section-heading { display: block; } .settings-badge { display: inline-block; margin-top: 8px; } }
 .settings-page {
   display: none;
   padding: 21px;
@@ -1531,6 +1540,19 @@ html[data-theme="dark"] .alert {
       <div class="alert">
         เว็บแบบ Static ไม่สามารถซ่อน API Key ได้ หากเผยแพร่บน GitHub Pages ควรใช้ API Proxy ฝั่งเซิร์ฟเวอร์ และไม่ควรบันทึก Secret Key ลงในไฟล์นี้ — เพิ่มผู้ให้บริการได้หลายอันดับ เรียงจากบนลงล่าง อันดับ 1 (บนสุด) จะถูกใช้ก่อนเสมอ ถ้าอันดับ 1 เรียกไม่สำเร็จ (error/timeout) ระบบจะข้ามไปลองอันดับถัดไปให้อัตโนมัติทันที ไล่ไปเรื่อยๆ จนกว่าจะสำเร็จหรือหมดรายการ เลือกค่ายแล้วใส่แค่ API Key/Token ของตัวเองก็พอ ไม่ต้องจำ URL
       </div>
+      <div class="settings-section-card provider-quick-setup">
+        <div class="settings-section-heading"><div><strong>เพิ่มช่องทาง AI แบบเร็ว</strong><div class="form-help">เลือกค่าย ระบบใส่ URL และรุ่นเริ่มต้นให้เอง — คุณกรอกเฉพาะ API Token</div></div><span class="settings-badge">Token เท่านั้น</span></div>
+        <div class="provider-quick-grid">
+          <button type="button" class="secondary-button provider-quick-add" data-provider="google">Google Gemini</button>
+          <button type="button" class="secondary-button provider-quick-add" data-provider="openai">OpenAI</button>
+          <button type="button" class="secondary-button provider-quick-add" data-provider="openrouter">OpenRouter</button>
+          <button type="button" class="secondary-button provider-quick-add" data-provider="groq">Groq</button>
+          <button type="button" class="secondary-button provider-quick-add" data-provider="deepseek">DeepSeek</button>
+          <button type="button" class="secondary-button provider-quick-add" data-provider="anthropicOR">Claude / OpenRouter</button>
+          <button type="button" class="secondary-button provider-quick-add" data-provider="mistral">Mistral</button>
+          <button type="button" class="secondary-button provider-quick-add" data-provider="custom">กำหนดเอง</button>
+        </div>
+      </div>
       <div id="providerRows" class="provider-rows"></div>
       <div class="button-row">
         <button class="secondary-button" id="addProviderButton">+ เพิ่มผู้ให้บริการ</button>
@@ -1584,7 +1606,7 @@ html[data-theme="dark"] .alert {
 
     <div class="settings-page" data-page="social">
       <h3>Social Connections</h3>
-      <div class="alert">เชื่อมต่อเฉพาะบัญชีที่คุณเป็นเจ้าของหรือมีสิทธิ์จัดการเท่านั้น ระบบรุ่นนี้ยังไม่โพสต์จริง จะเก็บเป็น Draft และแสดง Preview ก่อน</div>
+      <div class="alert">เชื่อมต่อเฉพาะบัญชีที่คุณเป็นเจ้าของหรือมีสิทธิ์จัดการเท่านั้น OAuth เป็นวิธีแนะนำสำหรับการใช้งานจริง ส่วน Token ด้านล่างจะถูกส่งเข้า Supabase เพื่อเข้ารหัสและให้ Agent ใช้ได้ — ระบบจะไม่ส่ง Token เข้า prompt และไม่แสดง Token กลับมา</div>
       <div class="feature-grid">
         <div class="feature-card"><strong>Facebook Graph API</strong><span id="facebookApiUrl">https://graph.facebook.com/v26.0</span></div>
         <div class="feature-card"><strong>TikTok Open API</strong><span id="tiktokApiUrl">https://open.tiktokapis.com/v2</span></div>
@@ -1596,7 +1618,7 @@ html[data-theme="dark"] .alert {
       <div class="form-row"><label for="socialSupabaseAnonKey">Supabase anon key</label><input class="text-input" id="socialSupabaseAnonKey" type="password" autocomplete="off" placeholder="eyJ..."><div class="form-help">ใช้ anon/publishable key เท่านั้น ห้ามใช้ service_role key</div></div>
       <div class="form-row"><div class="social-connection-card"><div><strong>Facebook Page</strong><div class="form-help">ต้องใช้ Meta App และสิทธิ์จัดการ Page</div></div><button class="primary-button" id="connectFacebookButton">เชื่อมต่อ Facebook</button></div></div>
       <div class="form-row"><div class="social-connection-card"><div><strong>TikTok</strong><div class="form-help">ต้องเปิด Content Posting API และขอสิทธิ์ video.publish</div></div><button class="primary-button" id="connectTiktokButton">เชื่อมต่อ TikTok</button></div></div>
-      <div class="button-row"><button class="secondary-button" id="testFacebookTokenButton">ทดสอบ Facebook Token</button><button class="secondary-button" id="testTiktokTokenButton">ทดสอบ TikTok Token</button></div><div id="socialTokenStatus" class="form-help"></div><div id="socialConnectionsList" class="form-help">ยังไม่ได้โหลดการเชื่อมต่อ</div>
+      <div class="button-row"><button class="secondary-button" id="testFacebookTokenButton">ทดสอบ Facebook Token</button><button class="secondary-button" id="saveFacebookTokenButton">บันทึกและเชื่อมต่อ Facebook</button><button class="secondary-button" id="testTiktokTokenButton">ทดสอบ TikTok Token</button><button class="secondary-button" id="saveTiktokTokenButton">บันทึกและเชื่อมต่อ TikTok</button></div><div id="socialTokenStatus" class="form-help"></div><div id="socialConnectionsList" class="form-help">ยังไม่ได้โหลดการเชื่อมต่อ</div>
       <h3>สร้าง Content Draft</h3>
       <div class="form-row"><label for="draftTitle">หัวข้อ</label><input class="text-input" id="draftTitle" maxlength="120" placeholder="เช่น โปรโมชันประจำสัปดาห์"></div>
       <div class="form-row"><label for="draftBody">ข้อความโพสต์</label><textarea class="textarea-input" id="draftBody" maxlength="5000" placeholder="เขียนข้อความที่ต้องการให้ AI ช่วยปรับหรือเตรียมไว้สำหรับ Preview"></textarea></div>
@@ -1863,7 +1885,7 @@ function applyProviderPreset(provider, rowEl) {
   const endpointInput = rowEl.querySelector(".provider-endpoint");
   const modelInput = rowEl.querySelector(".provider-models");
   const modelList = rowEl.querySelector(".provider-model-list");
-  if (endpointInput && preset.endpoint) endpointInput.value = preset.endpoint;
+  if (endpointInput) { endpointInput.value = preset.endpoint || endpointInput.value; endpointInput.readOnly = provider !== "custom"; endpointInput.title = endpointInput.readOnly ? "ระบบกำหนด URL ให้ตามผู้ให้บริการ" : "กำหนด URL เองได้"; }
   if (modelList) modelList.innerHTML = preset.models.map(m => `<option value="${escapeHtml(m)}"></option>`).join("");
   if (modelInput && !modelInput.value && preset.models[0]) modelInput.value = preset.models.join("\n");
 }
@@ -2012,6 +2034,19 @@ async function testDirectSocialToken(provider){
 }
 
 async function connectSocial(provider) { const data = await socialFunction("start", provider); if (!data.auth_url) throw new Error("ไม่ได้รับ OAuth URL"); location.href = data.auth_url; }
+async function saveSocialToken(provider) {
+  const input = provider === "facebook" ? $("#socialFacebookToken") : $("#socialTiktokToken");
+  const token = input?.value.trim();
+  if (!token) throw new Error("กรุณาใส่ Token ก่อน");
+  const result = await socialFunction("token_connect", provider, "", {access_token: token});
+  input.value = "";
+  state.settings.socialFacebookToken = provider === "facebook" ? "" : state.settings.socialFacebookToken;
+  state.settings.socialTiktokToken = provider === "tiktok" ? "" : state.settings.socialTiktokToken;
+  persistSettings();
+  await loadSocialConnections();
+  toast(`เชื่อมต่อ ${provider} สำเร็จ — Token ถูกเข้ารหัสบนเซิร์ฟเวอร์แล้ว`);
+  return result;
+}
 async function loadSocialConnections() { const box = $("#socialConnectionsList"); if (!box) return; try { const data = await socialFunction("list"); box.innerHTML = (data.data || []).map(item => `<div class="social-row"><span><strong>${escapeHtml(item.display_name)}</strong><br><small>${escapeHtml(item.provider)} · เชื่อมต่อแล้ว</small></span><button class="danger-button social-disconnect" data-connection-id="${escapeHtml(item.id)}">ยกเลิกการเชื่อมต่อ</button></div>`).join("") || "ยังไม่มีบัญชีที่เชื่อมต่อ"; } catch (error) { box.textContent = error.message; } }
 function renderContentPreview() { const title = $("#draftTitle")?.value.trim() || "ยังไม่มีหัวข้อ"; const body = $("#draftBody")?.value.trim() || "ยังไม่มีข้อความโพสต์"; const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value).join(" · ") || "ยังไม่ได้เลือกแพลตฟอร์ม"; const media = $("#draftMediaUrl")?.value.trim(); $("#contentPreview").innerHTML = `<strong>${escapeHtml(title)}</strong><div style="margin:10px 0">${escapeHtml(body)}</div><small>${escapeHtml(platforms)} · Draft เท่านั้น${media ? " · มีสื่อแนบ" : ""}</small>`; }
 async function publishContentDraft() { const policy=loadPolicy(); if(policy.emergencyStop) throw new Error("ถูกหยุดฉุกเฉิน"); const platforms=[...document.querySelectorAll(".draft-platform:checked")].map(item=>item.value); const body=$("#draftBody").value.trim(); const mediaUrl=$("#draftMediaUrl").value.trim(); if(!body) throw new Error("กรุณาใส่ข้อความโพสต์"); if(!platforms.length) throw new Error("กรุณาเลือกแพลตฟอร์ม"); if(!confirm("ยืนยันเผยแพร่จริงไปยัง " + platforms.join(", ") + " ? การกระทำนี้ส่งออกไปยังบัญชีภายนอกทันที")) return; const list=await socialFunction("list"); const targets=(list.data||[]).filter(item=>platforms.includes(item.provider) && ((item.provider==="facebook" && policy.allowFacebook) || (item.provider==="tiktok" && policy.allowTiktok))); if(!targets.length) throw new Error("ยังไม่มีบัญชีที่เชื่อมต่อสำหรับแพลตฟอร์มที่เลือก"); const results=[]; for(const target of targets) results.push(await socialFunction("publish", target.provider, "", {connection_id:target.id, body, media_url:mediaUrl, title:$("#draftTitle").value.trim()})); $("#draftStatus").textContent="เผยแพร่จริงแล้ว: " + results.map(item=>item.provider||"account").join(", "); toast("เผยแพร่จริงสำเร็จ"); }
@@ -3679,6 +3714,8 @@ function bindEvents() {
 
   $("#settingsButton").addEventListener("click", () => openSettings("general"));
   $("#connectFacebookButton").addEventListener("click", () => connectSocial("facebook").catch(e => toast(e.message, "error")));
+  $("#saveFacebookTokenButton").addEventListener("click", () => saveSocialToken("facebook").catch(e => toast(e.message, "error")));
+  $("#saveTiktokTokenButton").addEventListener("click", () => saveSocialToken("tiktok").catch(e => toast(e.message, "error")));
   $("#testFacebookTokenButton").addEventListener("click", () => testDirectSocialToken("facebook").catch(e => toast(e.message, "error")));
   $("#testTiktokTokenButton").addEventListener("click", () => testDirectSocialToken("tiktok").catch(e => toast(e.message, "error")));
   $("#connectTiktokButton").addEventListener("click", () => connectSocial("tiktok").catch(e => toast(e.message, "error")));
@@ -3746,6 +3783,14 @@ function bindEvents() {
       toast("เขียนไฟล์ลง Workspace Preview แล้ว");
     } catch (e) { toast(e.message, "error"); }
   });
+  $(".provider-quick-add").forEach(button => button.addEventListener("click", () => {
+    state.settings.providers = collectProvidersFromForm();
+    const presetId = button.dataset.provider;
+    const preset = PROVIDER_PRESETS[presetId] || PROVIDER_PRESETS.custom;
+    state.settings.providers.push({id: uid("prov"), presetId, label: preset.label || presetId, endpoint: preset.endpoint || "", model: preset.models?.[0] || "", models: preset.models || [], apiKey: "", apiKeys: [], enabled: true});
+    renderProviderRows();
+    toast(`เพิ่ม ${preset.label || presetId} แล้ว — กรอก Token ในแถวใหม่`);
+  }));
   $("#addProviderButton").addEventListener("click", () => {
     state.settings.providers = collectProvidersFromForm();
     state.settings.providers.push({id: uid("prov"), presetId: "custom", label: "", endpoint: "", model: "", models:[], apiKey: "", apiKeys:[], enabled: true});
