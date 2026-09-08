@@ -26,6 +26,7 @@ function base64(bytes: Uint8Array) { let s = ""; bytes.forEach(b => s += String.
 function fromBase64(value: string) { const s = atob(value); return Uint8Array.from(s, c => c.charCodeAt(0)); }
 async function key() { return crypto.subtle.importKey("raw", fromBase64(Deno.env.get("SOCIAL_TOKEN_ENCRYPTION_KEY") || ""), "AES-GCM", false, ["encrypt", "decrypt"]); }
 async function encrypt(value: string) { const iv = crypto.getRandomValues(new Uint8Array(12)); const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await key(), enc.encode(value)); return `${base64(iv)}.${base64(new Uint8Array(data))}`; }
+async function decrypt(value: string) { const [ivText, dataText] = value.split("."); const data = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromBase64(ivText) }, await key(), fromBase64(dataText)); return new TextDecoder().decode(data); }
 async function sha(value: string) { const digest = await crypto.subtle.digest("SHA-256", enc.encode(value)); return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join(""); }
 function redirectUri(provider: string) { return `${supabaseUrl}/functions/v1/social-oauth?action=callback&provider=${provider}`; }
 function scopes(provider: string) { return provider === "facebook" ? ["pages_show_list", "pages_read_engagement", "pages_manage_posts", "pages_manage_engagement"] : ["user.info.basic", "video.publish"]; }
@@ -57,6 +58,28 @@ async function exchange(provider: string, code: string, uri: string) {
   return [{ id: token.open_id, name: "TikTok account", access: token.access_token, refresh: token.refresh_token, expires: token.expires_in ? new Date(Date.now() + token.expires_in * 1000).toISOString() : null, scopes: (token.scope || "").split(",").filter(Boolean), metadata: { refresh_expires_in: token.refresh_expires_in || null } }];
 }
 
+async function publish(provider: string, userId: string, payload: any) {
+  const connectionId = String(payload.connection_id || "");
+  const { data: connection, error } = await admin.from("social_connections").select("id,provider,provider_account_id,access_token_encrypted").eq("id", connectionId).eq("user_id", userId).eq("provider", provider).maybeSingle();
+  if (error || !connection) throw new Error("ไม่พบบัญชีโซเชียลที่เชื่อมต่อ");
+  const token = await decrypt(connection.access_token_encrypted);
+  const body = String(payload.body || "").trim();
+  if (!body) throw new Error("ข้อความโพสต์ว่าง");
+  if (provider === "facebook") {
+    const form = new URLSearchParams({ message: body, access_token: token });
+    const response = await fetch(`https://graph.facebook.com/v26.0/${connection.provider_account_id}/feed`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
+    const result = await response.json();
+    if (!response.ok || result.error) throw new Error(result.error?.message || "Facebook publish failed");
+    return { provider, published: true, id: result.id };
+  }
+  const mediaUrl = String(payload.media_url || "").trim();
+  if (!mediaUrl) throw new Error("TikTok Direct Post ต้องมี Media URL ที่เข้าถึงได้จากอินเทอร์เน็ต");
+  const init = await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=UTF-8" }, body: JSON.stringify({ post_info: { title: body, privacy_level: String(payload.privacy_level || "PUBLIC_TO_EVERYONE"), disable_duet: false, disable_comment: false, disable_stitch: false }, source_info: { source: "PULL_FROM_URL", video_url: mediaUrl } }) });
+  const result = await init.json();
+  if (!init.ok || result.error?.code !== "ok") throw new Error(result.error?.message || "TikTok publish failed");
+  return { provider, published: true, publish_id: result.data?.publish_id, status: "processing" };
+}
+
 async function callback(req: Request, provider: string) {
   const url = new URL(req.url); const code = url.searchParams.get("code"); const state = url.searchParams.get("state");
   if (!code || !state) return redirect(`${appUrl}?social_oauth=error&message=${encodeURIComponent("OAuth ไม่สมบูรณ์")}`);
@@ -77,6 +100,7 @@ Deno.serve(async (req) => {
   const user = await userFromRequest(req); if (!user) return json({ error: "Unauthorized" }, 401);
   try {
     if (action === "start") return json(await start(provider, user.id));
+    if (action === "publish") return json(await publish(provider, user.id, await req.json()));
     if (action === "list") { const { data, error } = await admin.from("social_connections").select("id,provider,provider_account_id,display_name,token_expires_at,scopes,metadata,created_at,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }); if (error) throw error; return json({ data }); }
     if (action === "disconnect") { const id = url.searchParams.get("id"); const { error } = await admin.from("social_connections").delete().eq("id", id).eq("user_id", user.id); if (error) throw error; return json({ ok: true }); }
     return json({ error: "Unknown action" }, 400);

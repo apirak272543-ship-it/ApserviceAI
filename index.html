@@ -1532,9 +1532,10 @@ html[data-theme="dark"] .alert {
       <h3>สร้าง Content Draft</h3>
       <div class="form-row"><label for="draftTitle">หัวข้อ</label><input class="text-input" id="draftTitle" maxlength="120" placeholder="เช่น โปรโมชันประจำสัปดาห์"></div>
       <div class="form-row"><label for="draftBody">ข้อความโพสต์</label><textarea class="textarea-input" id="draftBody" maxlength="5000" placeholder="เขียนข้อความที่ต้องการให้ AI ช่วยปรับหรือเตรียมไว้สำหรับ Preview"></textarea></div>
+      <div class="form-row"><label for="draftMediaUrl">Media URL (จำเป็นสำหรับ TikTok)</label><input class="text-input" id="draftMediaUrl" placeholder="https://.../video.mp4 หรือรูปภาพที่เข้าถึงได้สาธารณะ"></div>
       <div class="form-row"><label>แพลตฟอร์มเป้าหมาย</label><div class="button-row"><label><input type="checkbox" class="draft-platform" value="facebook"> Facebook Page</label><label><input type="checkbox" class="draft-platform" value="tiktok"> TikTok</label></div></div>
       <div class="content-preview" id="contentPreview"><div class="form-help">Preview จะแสดงที่นี่</div></div>
-      <div class="button-row"><button class="secondary-button" id="refreshPreviewButton">อัปเดต Preview</button><button class="primary-button" id="saveDraftButton">บันทึก Draft</button></div>
+      <div class="button-row"><button class="secondary-button" id="refreshPreviewButton">อัปเดต Preview</button><button class="primary-button" id="saveDraftButton">บันทึก Draft</button><button class="danger-button" id="publishDraftButton">เผยแพร่จริง</button></div>
       <div id="draftStatus" class="form-help"></div>
     </div>
 
@@ -1608,6 +1609,11 @@ html[data-theme="dark"] .alert {
       <div class="form-row"><label for="githubCommitMessage">ข้อความ Commit</label><input class="text-input" id="githubCommitMessage" value="Update from NOVA Chat"></div>
       <div class="button-row"><button class="primary-button" id="githubWriteButton">เขียนไฟล์และ Commit</button></div>
       <pre id="githubOutput" class="code-output"></pre>
+      <h3>พื้นที่ทำงานและ Preview</h3>
+      <div class="alert">AI จะอ่านไฟล์จาก GitHub มาไว้ใน Workspace ก่อน แก้ไขในพื้นที่นี้โดยยังไม่ส่งออก คุณตรวจ diff ได้ แล้วกด “ส่งออกและ Commit” เมื่อพร้อม</div>
+      <div class="button-row"><button class="secondary-button" id="workspaceRefreshButton">รีเฟรช Workspace</button><button class="danger-button" id="workspaceClearButton">ล้าง Preview</button><button class="primary-button" id="workspacePublishButton">ส่งออกและ Commit</button></div>
+      <div id="workspaceList" class="form-help">ยังไม่มีไฟล์ใน Workspace</div>
+      <pre id="workspaceDiff" class="code-output"></pre>
 
       <div class="button-row">
         <button class="secondary-button" id="exportButton">ส่งออกข้อมูล JSON</button>
@@ -1844,10 +1850,12 @@ async function ensureSocialSession() {
   localStorage.setItem("nova_supabase_session", JSON.stringify(created)); return created;
 }
 function socialFunctionUrl(action = "list", provider = "") { const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/social-oauth"; return `${base}?action=${encodeURIComponent(action)}${provider ? `&provider=${encodeURIComponent(provider)}` : ""}`; }
-async function socialFunction(action = "list", provider = "", extra = "") { const session = await ensureSocialSession(); const response = await fetch(socialFunctionUrl(action, provider) + extra, {headers:{apikey:state.settings.supabaseAnonKey, Authorization:"Bearer " + session.access_token}}); const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`); return data; }
+async function socialFunction(action = "list", provider = "", extra = "", payload = null) { const session = await ensureSocialSession(); const response = await fetch(socialFunctionUrl(action, provider) + extra, {method:payload ? "POST" : "GET", headers:{apikey:state.settings.supabaseAnonKey, Authorization:"Bearer " + session.access_token, ...(payload ? {"Content-Type":"application/json"} : {})}, body:payload ? JSON.stringify(payload) : undefined}); const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`); return data; }
 async function connectSocial(provider) { const data = await socialFunction("start", provider); if (!data.auth_url) throw new Error("ไม่ได้รับ OAuth URL"); location.href = data.auth_url; }
 async function loadSocialConnections() { const box = $("#socialConnectionsList"); if (!box) return; try { const data = await socialFunction("list"); box.innerHTML = (data.data || []).map(item => `<div class="social-row"><span><strong>${escapeHtml(item.display_name)}</strong><br><small>${escapeHtml(item.provider)} · เชื่อมต่อแล้ว</small></span><button class="danger-button social-disconnect" data-connection-id="${escapeHtml(item.id)}">ยกเลิกการเชื่อมต่อ</button></div>`).join("") || "ยังไม่มีบัญชีที่เชื่อมต่อ"; } catch (error) { box.textContent = error.message; } }
-function renderContentPreview() { const title = $("#draftTitle")?.value.trim() || "ยังไม่มีหัวข้อ"; const body = $("#draftBody")?.value.trim() || "ยังไม่มีข้อความโพสต์"; const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value).join(" · ") || "ยังไม่ได้เลือกแพลตฟอร์ม"; $("#contentPreview").innerHTML = `<strong>${escapeHtml(title)}</strong><div style="margin:10px 0">${escapeHtml(body)}</div><small>${escapeHtml(platforms)} · Draft เท่านั้น</small>`; }
+function renderContentPreview() { const title = $("#draftTitle")?.value.trim() || "ยังไม่มีหัวข้อ"; const body = $("#draftBody")?.value.trim() || "ยังไม่มีข้อความโพสต์"; const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value).join(" · ") || "ยังไม่ได้เลือกแพลตฟอร์ม"; const media = $("#draftMediaUrl")?.value.trim(); $("#contentPreview").innerHTML = `<strong>${escapeHtml(title)}</strong><div style="margin:10px 0">${escapeHtml(body)}</div><small>${escapeHtml(platforms)} · Draft เท่านั้น${media ? " · มีสื่อแนบ" : ""}</small>`; }
+async function publishContentDraft() { const platforms=[...document.querySelectorAll(".draft-platform:checked")].map(item=>item.value); const body=$("#draftBody").value.trim(); const mediaUrl=$("#draftMediaUrl").value.trim(); if(!body) throw new Error("กรุณาใส่ข้อความโพสต์"); if(!platforms.length) throw new Error("กรุณาเลือกแพลตฟอร์ม"); if(!confirm("ยืนยันเผยแพร่จริงไปยัง " + platforms.join(", ") + " ? การกระทำนี้ส่งออกไปยังบัญชีภายนอกทันที")) return; const list=await socialFunction("list"); const targets=(list.data||[]).filter(item=>platforms.includes(item.provider)); if(!targets.length) throw new Error("ยังไม่มีบัญชีที่เชื่อมต่อสำหรับแพลตฟอร์มที่เลือก"); const results=[]; for(const target of targets) results.push(await socialFunction("publish", target.provider, "", {connection_id:target.id, body, media_url:mediaUrl, title:$("#draftTitle").value.trim()})); $("#draftStatus").textContent="เผยแพร่จริงแล้ว: " + results.map(item=>item.provider||"account").join(", "); toast("เผยแพร่จริงสำเร็จ"); }
+
 async function saveContentDraft() { const session = await ensureSocialSession(); const body = $("#draftBody").value.trim(); if (!body) throw new Error("กรุณาใส่ข้อความโพสต์"); const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value); if (!platforms.length) throw new Error("กรุณาเลือกแพลตฟอร์มอย่างน้อยหนึ่งรายการ"); await socialRequest("/rest/v1/content_drafts", {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({user_id:session.user.id, title:$("#draftTitle").value.trim(), body, target_platforms:platforms, status:"draft"})}); $("#draftStatus").textContent = "บันทึก Draft แล้ว — ยังไม่มีการโพสต์ออกไป"; toast("บันทึก Content Draft แล้ว"); }
 
 function loadSkillsLocal() {
@@ -1922,32 +1930,13 @@ async function githubListFiles(branch) {
   return (data.tree || []).filter(item => item.type === "blob").map(item => item.path);
 }
 
-async function githubReadFile(path, branch) {
-  if (!path) throw new Error("กรุณาระบุ path ของไฟล์");
-  const b = branch || state.settings.githubBranch || "main";
-  const data = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(b)}`);
-  if (Array.isArray(data)) throw new Error("Path นี้เป็นโฟลเดอร์ ไม่ใช่ไฟล์");
-  return {path, content: b64DecodeUtf8(data.content || ""), sha: data.sha};
-}
-
-async function githubWriteFile({path, content, message, branch}) {
-  if (!path) throw new Error("กรุณาระบุ path ของไฟล์");
-  if (typeof content !== "string") throw new Error("กรุณาระบุเนื้อหาไฟล์");
-  const b = branch || state.settings.githubBranch || "main";
-  let sha;
-  try {
-    const existing = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(b)}`);
-    sha = existing?.sha;
-  } catch {}
-  const body = {message: message || "Update from NOVA Chat", content: b64EncodeUtf8(content), branch: b};
-  if (sha) body.sha = sha;
-  const data = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(path)}`, {
-    method: "PUT",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(body)
-  });
-  return {path, commit_sha: data.commit?.sha, url: data.content?.html_url};
-}
+function workspaceKey() { return "nova_workspace_" + [state.settings.githubOwner, state.settings.githubRepo, state.settings.githubBranch || "main"].join("/"); }
+function loadWorkspace() { try { return JSON.parse(localStorage.getItem(workspaceKey()) || "{\"files\":{}}") || {files:{}}; } catch { return {files:{}}; } }
+function saveWorkspace(workspace) { localStorage.setItem(workspaceKey(), JSON.stringify(workspace)); renderWorkspace(); }
+function renderWorkspace() { const box=$("#workspaceList"), diff=$("#workspaceDiff"); if(!box||!diff)return; const ws=loadWorkspace(), files=Object.values(ws.files||{}); box.innerHTML=files.length ? files.map(f=>`<div class="social-row"><span><strong>${escapeHtml(f.path)}</strong><br><small>${f.status === "modified" ? "แก้ไขแล้วใน Preview" : "อ่านเข้า Workspace แล้ว"} · ${f.content.length} chars</small></span><button class="secondary-button workspace-open" data-workspace-path="${escapeHtml(f.path)}">เปิด</button></div>`).join("") : "ยังไม่มีไฟล์ใน Workspace"; diff.textContent=files.map(f=>`--- ${f.path} [${f.status}]\n+++ Preview\n${f.content}`).join("\n\n"); }
+async function githubReadFile(path, branch) { if(!path) throw new Error("กรุณาระบุ path ของไฟล์"); const b=branch||state.settings.githubBranch||"main"; const existing=loadWorkspace().files[path]; if(existing && existing.branch===b) return {path, content:existing.content, sha:existing.sha, source:"workspace"}; const data=await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(b)}`); const content=b64DecodeUtf8(data.content||""); const ws=loadWorkspace(); ws.files[path]={path,content,sha:data.sha,branch:b,status:"unchanged"}; saveWorkspace(ws); return {path,content,sha:data.sha,source:"github-staged"}; }
+async function githubStageFile({path,content,message,branch}) { if(!path) throw new Error("กรุณาระบุ path ของไฟล์"); const b=branch||state.settings.githubBranch||"main"; const ws=loadWorkspace(); const prior=ws.files[path]||{}; ws.files[path]={path,content:String(content??""),sha:prior.sha||null,branch:b,status:"modified",message:message||"Update from NOVA Workspace",updatedAt:Date.now()}; saveWorkspace(ws); return {path,staged:true,publish_required:true,source:"workspace"}; }
+async function githubPublishWorkspace(message) { const ws=loadWorkspace(); const files=Object.values(ws.files||{}).filter(f=>f.status==="modified"); if(!files.length) throw new Error("ยังไม่มีไฟล์ที่แก้ไขใน Workspace"); const results=[]; for(const file of files){ const body={message:message||file.message||"Update from NOVA Workspace",content:b64EncodeUtf8(file.content),branch:file.branch||state.settings.githubBranch||"main"}; if(file.sha) body.sha=file.sha; const data=await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(file.path)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); results.push({path:file.path,commit_sha:data.commit?.sha,url:data.content?.html_url}); file.sha=data.content?.sha||file.sha; file.status="published"; } saveWorkspace(ws); return {published:true,files:results}; }
 
 async function githubSearchCode(query) {
   if (!query) throw new Error("กรุณาระบุคำค้นหา");
@@ -1964,7 +1953,8 @@ async function githubListCommits(branch) {
 const GITHUB_TOOLS = [
   {type: "function", function: {name: "github_list_files", description: "แสดงรายการไฟล์ทั้งหมดในรีโพ GitHub ที่ตั้งค่าไว้", parameters: {type: "object", properties: {branch: {type: "string", description: "ชื่อ branch (ถ้าไม่ระบุจะใช้ branch ที่ตั้งค่าไว้)"}}, required: []}}},
   {type: "function", function: {name: "github_read_file", description: "อ่านเนื้อหาไฟล์จากรีโพ GitHub", parameters: {type: "object", properties: {path: {type: "string", description: "path ของไฟล์ในรีโพ"}, branch: {type: "string"}}, required: ["path"]}}},
-  {type: "function", function: {name: "github_write_file", description: "สร้างหรือแก้ไขไฟล์ในรีโพ GitHub แล้ว commit ทันที", parameters: {type: "object", properties: {path: {type: "string"}, content: {type: "string", description: "เนื้อหาไฟล์ทั้งหมดหลังแก้ไข"}, message: {type: "string", description: "ข้อความ commit"}, branch: {type: "string"}}, required: ["path", "content"]}}},
+  {type: "function", function: {name: "github_write_file", description: "เขียนไฟล์ลง Workspace/Preview ก่อน ยังไม่ commit จนกว่าจะสั่ง publish", parameters: {type: "object", properties: {path: {type: "string"}, content: {type: "string", description: "เนื้อหาไฟล์ทั้งหมดหลังแก้ไข"}, message: {type: "string"}, branch: {type: "string"}}, required: ["path", "content"]}}},
+  {type: "function", function: {name: "github_publish_workspace", description: "ส่งไฟล์ที่ผู้ใช้ตรวจ Preview แล้วออกไป commit บน GitHub", parameters: {type: "object", properties: {message: {type: "string"}}, required: []}}},
   {type: "function", function: {name: "github_search_code", description: "ค้นหาโค้ดภายในรีโพ GitHub", parameters: {type: "object", properties: {query: {type: "string"}}, required: ["query"]}}},
   {type: "function", function: {name: "github_list_commits", description: "แสดงประวัติ commit ล่าสุดของ branch", parameters: {type: "object", properties: {branch: {type: "string"}}, required: []}}}
 ];
@@ -1973,7 +1963,8 @@ function githubToolLabel(name) {
   const labels = {
     github_list_files: "กำลังอ่านรายการไฟล์ในรีโพ",
     github_read_file: "กำลังอ่านไฟล์",
-    github_write_file: "กำลังเขียนไฟล์และ commit",
+    github_write_file: "กำลังเขียนไฟล์ลง Workspace Preview",
+    github_publish_workspace: "กำลังส่ง Workspace ออกไป commit",
     github_search_code: "กำลังค้นหาโค้ด",
     github_list_commits: "กำลังอ่านประวัติ commit"
   };
@@ -1984,7 +1975,8 @@ async function executeGithubTool(name, args = {}) {
   switch (name) {
     case "github_list_files": return await githubListFiles(args.branch);
     case "github_read_file": return await githubReadFile(args.path, args.branch);
-    case "github_write_file": return await githubWriteFile(args);
+    case "github_write_file": return await githubStageFile(args);
+    case "github_publish_workspace": return await githubPublishWorkspace(args.message);
     case "github_search_code": return await githubSearchCode(args.query);
     case "github_list_commits": return await githubListCommits(args.branch);
     default: throw new Error("ไม่รู้จักเครื่องมือ: " + name);
@@ -2421,6 +2413,7 @@ function positionPopover(popover, anchor) {
 
 function openSettings(page = "general") {
   fillSettingsForm();
+  renderWorkspace();
   switchSettingsPage(page);
   if (page === "social") { $("#socialSupabaseUrl").value = state.settings.supabaseUrl || ""; $("#socialSupabaseAnonKey").value = state.settings.supabaseAnonKey || ""; loadSocialConnections(); renderContentPreview(); }
   $("#settingsModal").classList.add("open");
@@ -2574,7 +2567,7 @@ function buildSystemPrompt() {
   }
 
   if (githubReady()) {
-    parts.push(`คุณมีเครื่องมือ github_list_files, github_read_file, github_write_file, github_search_code และ github_list_commits สำหรับทำงานกับรีโพ GitHub "${state.settings.githubOwner}/${state.settings.githubRepo}" (branch เริ่มต้น "${state.settings.githubBranch || "main"}") โดยตรงและทันที ไม่มีคิวหรือตัวกลางใดๆ ให้เรียกใช้เครื่องมือเหล่านี้เมื่อผู้ใช้ขอให้ดู แก้ไข หรือจัดการไฟล์/โค้ด/commit ในรีโพนี้ เมื่อแก้ไฟล์ ให้อ่านเนื้อหาปัจจุบันก่อนเสมอ แล้วเขียนไฟล์ฉบับเต็มกลับไป`);
+    parts.push(`คุณมีความสามารถอ่านรายการไฟล์, อ่านไฟล์, ค้นหาโค้ด, แก้ไขไฟล์, แสดงความคืบหน้าใน Workspace Preview และอ่านประวัติ commit ของรีโพ GitHub "${state.settings.githubOwner}/${state.settings.githubRepo}" (branch เริ่มต้น "${state.settings.githubBranch || "main"}") ผ่านเครื่องมือ github_list_files, github_read_file, github_write_file, github_publish_workspace, github_search_code และ github_list_commits โดยตรง ไม่มีคิวหรือตัวกลางใดๆ เมื่อผู้ใช้ขอให้ทำงานกับโค้ด ให้ใช้เครื่องมือจริง ไม่ตอบว่าไม่รู้หรือไม่มีความสามารถ หากผู้ใช้ขอแก้ไฟล์ ให้อ่านเนื้อหาปัจจุบันก่อน แล้วเขียนฉบับเต็มลง Workspace Preview เพื่อให้ตรวจสอบก่อน ห้าม publish เองจนกว่าผู้ใช้จะสั่งให้ส่งออกและ commit`);
   }
 
   return parts.join("\n\n");
@@ -3202,8 +3195,9 @@ function bindEvents() {
   $("#connectTiktokButton").addEventListener("click", () => connectSocial("tiktok").catch(e => toast(e.message, "error")));
   $("#socialConnectionsList").addEventListener("click", event => { const id = event.target.closest(".social-disconnect")?.dataset.connectionId; if (id) socialFunction("disconnect", "", `&id=${encodeURIComponent(id)}`).then(loadSocialConnections).catch(e => toast(e.message, "error")); });
   $("#refreshPreviewButton").addEventListener("click", renderContentPreview);
-  $("#draftTitle").addEventListener("input", renderContentPreview); $("#draftBody").addEventListener("input", renderContentPreview); document.querySelectorAll(".draft-platform").forEach(item => item.addEventListener("change", renderContentPreview));
+  $("#draftTitle").addEventListener("input", renderContentPreview); $("#draftBody").addEventListener("input", renderContentPreview); $("#draftMediaUrl").addEventListener("input", renderContentPreview); document.querySelectorAll(".draft-platform").forEach(item => item.addEventListener("change", renderContentPreview));
   $("#saveDraftButton").addEventListener("click", () => saveContentDraft().catch(e => toast(e.message, "error")));
+  $("#publishDraftButton").addEventListener("click", () => publishContentDraft().catch(e => toast(e.message, "error")));
   $("#modelButton").addEventListener("click", () => openSettings("connection"));
   $("#closeSettingsButton").addEventListener("click", closeSettings);
   $("#cancelSettingsButton").addEventListener("click", closeSettings);
@@ -3240,20 +3234,25 @@ function bindEvents() {
     try {
       const data = await githubReadFile($("#githubPath").value.trim(), $("#githubBranch").value.trim());
       $("#githubContent").value = data.content || "";
-      toast("อ่านไฟล์สำเร็จ");
+      renderWorkspace();
+      toast("อ่านไฟล์เข้า Workspace สำเร็จ");
     } catch (e) { toast(e.message, "error"); }
   });
+  $("#workspaceRefreshButton").addEventListener("click", renderWorkspace);
+  $("#workspaceClearButton").addEventListener("click", () => { localStorage.removeItem(workspaceKey()); renderWorkspace(); toast("ล้าง Workspace Preview แล้ว"); });
+  $("#workspacePublishButton").addEventListener("click", async () => { try { const result=await githubPublishWorkspace($("#githubCommitMessage").value.trim()); $("#githubOutput").textContent=JSON.stringify(result,null,2); toast("ส่ง Workspace และ Commit สำเร็จ"); } catch(e) { toast(e.message,"error"); } });
+  $("#workspaceList").addEventListener("click", event => { const path=event.target.closest(".workspace-open")?.dataset.workspacePath; if(path){ const f=loadWorkspace().files[path]; if(f){ $("#githubPath").value=path; $("#githubContent").value=f.content; } } });
   $("#githubWriteButton").addEventListener("click", async () => {
     syncGithubSettingsFromForm();
     try {
-      const data = await githubWriteFile({
+      const data = await githubStageFile({
         path: $("#githubPath").value.trim(),
         content: $("#githubContent").value,
         message: $("#githubCommitMessage").value.trim(),
         branch: $("#githubBranch").value.trim()
       });
       $("#githubOutput").textContent = JSON.stringify(data, null, 2);
-      toast("เขียนไฟล์และ Commit สำเร็จ");
+      toast("เขียนไฟล์ลง Workspace Preview แล้ว");
     } catch (e) { toast(e.message, "error"); }
   });
   $("#providerPreset").addEventListener("change", event => applyProviderPreset(event.target.value));

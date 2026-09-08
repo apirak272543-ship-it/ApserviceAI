@@ -1,6 +1,6 @@
 # Social Connections setup
 
-ระบบรุ่นแรกนี้รองรับการเชื่อมต่อ **Facebook Page** และ **TikTok** แบบ OAuth, เก็บ access/refresh token เป็น ciphertext ฝั่ง Supabase Edge Function และสร้าง Content Draft พร้อม Preview เท่านั้น ยังไม่มี endpoint สำหรับเผยแพร่โพสต์จริง
+ระบบนี้รองรับการเชื่อมต่อ **Facebook Page** และ **TikTok** แบบ OAuth, เก็บ access/refresh token เป็น ciphertext ฝั่ง Supabase Edge Function และมีขั้น **Draft/Preview → ยืนยัน → Publish จริง** แยกกันชัดเจน
 
 ## 1. ใช้ schema
 
@@ -69,9 +69,18 @@ supabase functions deploy social-oauth
 5. Provider redirect กลับไปที่ callback; function แลก code และเข้ารหัส token ด้วย AES-GCM ก่อนเก็บ
 6. หน้าเว็บแสดงเฉพาะชื่อบัญชี, provider, scopes และวันหมดอายุ token
 7. ผู้ใช้สร้าง Draft, เลือกแพลตฟอร์ม และตรวจ Preview ก่อนบันทึก
+8. ปุ่ม **เผยแพร่จริง** จะถามยืนยันอีกครั้งก่อนส่งออกไปยังบัญชีภายนอก
 
-## ข้อควรทำก่อนเพิ่มการโพสต์จริง
+## การเผยแพร่จริง
 
-เพิ่มขั้นตอน explicit approval, ตรวจสิทธิ์/อายุ token, จำกัดชนิดและขนาดสื่อ, idempotency key, audit log, rate-limit และระบบ queue แยกต่างหากก่อนเปิดการเผยแพร่จริง ห้ามนำ ciphertext หรือ token ใด ๆ ไปใส่ใน `localStorage` หรือส่งกลับหน้าเว็บ
+Facebook ใช้ Page Graph API endpoint `/{page-id}/feed` และต้องมี Page access token กับสิทธิ์ที่ Meta อนุมัติแล้ว
+
+TikTok ใช้ Content Posting API Direct Post endpoint `/v2/post/publish/video/init/` แบบ `PULL_FROM_URL`; URL ของวิดีโอต้องเข้าถึงได้จากอินเทอร์เน็ต และแอปต้องผ่านข้อกำหนด/การตรวจสอบของ TikTok ตาม use case
+
+การ publish เป็นการกระทำภายนอกที่ย้อนกลับไม่ได้ง่าย ระบบจึงไม่ publish เองระหว่างการแก้ไข Draft และจะไม่ให้ AI เรียก publish โดยไม่มีคำสั่งจากผู้ใช้
+
+## ข้อควรทำก่อนใช้งานจริง
+
+ตรวจสิทธิ์/อายุ token, จำกัดชนิดและขนาดสื่อ, เพิ่ม idempotency key, audit log และ rate-limit ตามนโยบายของ provider ห้ามนำ ciphertext หรือ token ใด ๆ ไปใส่ใน `localStorage` หรือส่งกลับหน้าเว็บ
 
 เอกสารอ้างอิง: [Meta Pages API Posts](https://developers.facebook.com/documentation/pages-api/posts), [TikTok Content Posting API](https://developers.tiktok.com/doc/content-posting-api-get-started)

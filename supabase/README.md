@@ -8,6 +8,7 @@
 - หากเปิดใช้งาน Supabase ให้ใช้เฉพาะตาราง `chat_histories` สำหรับซิงก์ประวัติแชตของผู้ใช้
 - GitHub เชื่อมต่อจาก browser โดยตรงผ่าน GitHub REST API ด้วย Fine-grained Personal Access Token ที่ผู้ใช้กรอกเอง
 - การอ่านไฟล์, ค้นหาโค้ด, แก้ไฟล์ และ commit เรียก GitHub API ทันทีใน session เดียว ไม่ผ่าน queue, Edge Function, Actions หรือ agent กลาง
+- การแก้ไขจะถูก stage ใน Workspace ของ browser ก่อน ผู้ใช้เห็นรายการไฟล์และ Preview แล้วจึงกดส่งออก/commit หรือสั่ง AI ให้ publish หลังตรวจสอบ
 - token GitHub ถูกเก็บใน localStorage ของ browser ตามการตั้งค่าของผู้ใช้ ห้ามนำออกไปใส่ใน repository หรือส่งออกไฟล์ JSON
 
 ## Supabase schema ที่จำเป็นสำหรับแชต
@@ -36,6 +37,8 @@
 - repository dispatch
 - GitHub Actions workflow dispatch และ workflow run polling
 - Supabase Edge Function สำหรับ GitHub agent
+
+การอ่านไฟล์จาก GitHub จะดึงสำเนามาไว้ใน Workspace; `github_write_file` แก้เฉพาะสำเนา Preview และ `github_publish_workspace` เท่านั้นที่ส่งไฟล์ไป commit จริง
 
 ไฟล์ legacy ที่เกี่ยวกับ agent queue ถูกนำออกจาก repository เพื่อไม่ให้เกิดความสับสนกับเส้นทาง direct execution
 
