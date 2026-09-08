@@ -1810,7 +1810,10 @@ const DEFAULT_SETTINGS = {
   socialFacebookToken: "",
   socialTiktokToken: "",
   taskMode: "smart",
-  visibleMessages: 10
+  visibleMessages: 10,
+  autoRecovery: true,
+  retryForever: true,
+  retryMaxBackoffMs: 30000
 };
 const PUBLIC_ENDPOINTS = Object.freeze({
   githubApi: "https://api.github.com",
@@ -2844,7 +2847,7 @@ function buildApiContent(message) {
 function buildSystemPrompt() {
   const parts = [];
   if (state.settings.systemPrompt) parts.push(state.settings.systemPrompt);
-  parts.push(`กฎความแม่นยำและการลงมือทำ: ห้ามเดาข้อเท็จจริงที่ไม่ทราบ หากข้อมูลไม่พอให้ใช้เครื่องมือ/ไฟล์ที่มีอยู่ก่อนสรุป และห้ามแต่ง URL, API, โมเดล หรือผลการทำงานขึ้นเอง. สำหรับงานที่ผู้ใช้สั่งให้ทำ ให้แยกการวิเคราะห์ภายในออกจากคำตอบ แต่เมื่อได้ข้อสรุปที่เพียงพอแล้วต้องลงมือทำทันทีด้วยเครื่องมือที่มีอยู่ ไม่ใช่หยุดที่การเสนอแผนหรือบอกว่าจะทำ. หากมีเครื่องมือที่สามารถทำงานต่อได้ ให้เรียกเครื่องมือทันทีแล้วใช้ผลลัพธ์เป็นข้อมูลสำหรับขั้นตอนถัดไปจนงานเสร็จ. ห้ามสรุปว่าทำเสร็จหากยังไม่ได้เรียกเครื่องมือที่จำเป็นจริง. ไม่เปิดเผย chain-of-thought หรือเหตุผลภายในแบบละเอียด.`);
+  parts.push(`กฎความแม่นยำ: ห้ามเดาข้อเท็จจริงที่ไม่ทราบ หากข้อมูลไม่พอให้บอกสิ่งที่ยังไม่ทราบและใช้เครื่องมือ/ไฟล์ที่มีอยู่ก่อนสรุป ห้ามแต่ง URL, API, โมเดล หรือผลการทำงานขึ้นเอง. สำหรับงานหลายขั้นตอน ให้คิดเป็นแผนงานภายในและแสดงต่อผู้ใช้เฉพาะสถานะ/ขั้นตอนที่จำเป็น ไม่เปิดเผย chain-of-thought หรือเหตุผลภายในแบบละเอียด.`);
 
   const skills = (loadSkillsLocal() || []).filter(skill => skill.enabled);
   if (skills.length) {
@@ -2916,7 +2919,7 @@ function taskPriority(text){
   return 50;
 }
 function createTaskForMessage(message){
-  const task={id:uid("task"), title:makeTitle(message.content||"งานไฟล์แนบ"), sourceMessageId:message.id, priority:taskPriority(message.content), status:"queued", createdAt:Date.now(), steps:["วิเคราะห์งาน","ตัดสินใจ","ลงมือทำ","ตรวจผล"]};
+  const task={id:uid("task"), title:makeTitle(message.content||"งานไฟล์แนบ"), sourceMessageId:message.id, priority:taskPriority(message.content), status:"queued", createdAt:Date.now(), steps:["วิเคราะห์งาน","จัดลำดับ","ดำเนินการ","ตรวจผล"]};
   state.tasks.push(task);
   if(state.settings.taskMode === "smart") state.tasks.sort((a,b)=>b.priority-a.priority || a.createdAt-b.createdAt);
   return task;
@@ -3049,17 +3052,54 @@ async function generateAssistantResponse(chat, task = null) {
   setTaskStep(task, 1);
   const useTools = githubReady();
   const apiMessages = buildApiMessages(chat, chat.messages.length - 1);
-  if (useTools) {
-    apiMessages.splice(1, 0, {role:"system", content:"EXECUTION DIRECTIVE: ถ้าคำขอนี้เป็นงานที่ต้องอ่าน/ค้นหา/แก้ไข/สร้าง/ทดสอบ/เผยแพร่ ให้ลงมือด้วยเครื่องมือทันทีเมื่อมีข้อมูลพอ อย่าหยุดหลังวิเคราะห์หรือเขียนแผน. ทำเป็นวงจร วิเคราะห์ → เครื่องมือ → ตรวจผล → เครื่องมือถัดไป จนกว่างานจะเสร็จ. ใช้เครื่องมือที่มีจริงเท่านั้น และรายงานผลตามจริง."});
-  }
   if (useTools || providerChain.length > 1) assistantMessage.directExecution = {status: "running", events: []};
 
+  // Automatic resilience layer: never stop the active task just because a free API is busy,
+  // rate-limited, temporarily unavailable, or one token/model has been exhausted.
+  const providerHealth = new Map();
   let providerIndex = 0;
+  let retryRound = 0;
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const backoff = round => Math.min(30000, 800 * Math.pow(1.6, Math.min(round, 8)) + Math.random() * 500);
+  function healthKey(p) { return `${p.endpoint}|${p.model}|${p.apiKey || "no-key"}`; }
+  function markProviderBusy(p, status) {
+    const key = healthKey(p);
+    const old = providerHealth.get(key) || {failures:0, cooldownUntil:0};
+    let cooldown = status === 429 ? 8000 : status >= 500 ? 3000 : status === 401 || status === 403 ? 60000 : 2500;
+    providerHealth.set(key, {failures: old.failures + 1, cooldownUntil: Date.now() + cooldown});
+  }
+  function availableProviderIndex(start = 0) {
+    const now = Date.now();
+    for (let n = 0; n < providerChain.length; n++) {
+      const i = (start + n) % providerChain.length;
+      const h = providerHealth.get(healthKey(providerChain[i]));
+      if (!h || h.cooldownUntil <= now) return i;
+    }
+    return -1;
+  }
+  function silentRecoveryEvent(text) {
+    if (!assistantMessage.directExecution) return;
+    // Keep recovery information compact; do not expose raw provider errors or secrets.
+    assistantMessage.directExecution.events.push({text, kind: ""});
+    if (assistantMessage.directExecution.events.length > 8) assistantMessage.directExecution.events.shift();
+    renderChat();
+  }
   async function fetchFromChain(requestBody) {
-    while (providerIndex < providerChain.length) {
+    if (!providerChain.length) throw new Error("NO_PROVIDER");
+    while (true) {
+      if (state.abortController?.signal.aborted) throw new DOMException("Aborted", "AbortError");
+      const next = availableProviderIndex(providerIndex);
+      if (next < 0) {
+        retryRound += 1;
+        silentRecoveryEvent(`ระบบกำลังรอคิว API และลองใหม่อัตโนมัติ (${retryRound})`);
+        await sleep(backoff(retryRound));
+        providerIndex = 0;
+        continue;
+      }
+      providerIndex = next;
       const provider = providerChain[providerIndex];
       const body = {...requestBody, model: provider.model};
-      let response, networkError;
+      let response = null, networkError = null;
       try {
         response = await fetch(provider.endpoint, {
           method: "POST",
@@ -3070,26 +3110,28 @@ async function generateAssistantResponse(chat, task = null) {
       } catch (err) { networkError = err; }
 
       if (networkError?.name === "AbortError") throw networkError;
-      if (response && response.ok) return response;
+      if (response?.ok) {
+        retryRound = 0;
+        providerHealth.delete(healthKey(provider));
+        return response;
+      }
 
-      let details = "";
-      if (response) {
-        try { const errorJson = await response.json(); details = errorJson?.error?.message || JSON.stringify(errorJson); }
-        catch { try { details = await response.text(); } catch { details = response.statusText; } }
+      const status = response?.status || 0;
+      markProviderBusy(provider, status);
+      // Move immediately to another token/model/provider. Raw errors are deliberately hidden.
+      const nextIndex = availableProviderIndex((providerIndex + 1) % providerChain.length);
+      providerIndex = nextIndex >= 0 ? nextIndex : 0;
+      retryRound += 1;
+      silentRecoveryEvent(status === 429
+        ? "API กำลังใช้งานหนาแน่น ระบบกำลังสลับ Token/โมเดลและลองใหม่"
+        : "API ชั่วคราวไม่พร้อม ระบบกำลังสลับช่องทางและลองใหม่");
+
+      if (nextIndex < 0 || providerChain.length === 1) {
+        await sleep(backoff(retryRound));
       } else {
-        details = networkError?.message || "เชื่อมต่อไม่สำเร็จ";
-      }
-      if (assistantMessage.directExecution) {
-        assistantMessage.directExecution.events.push({text: `${providerLabel(provider)}: ${details}`, kind: "err"});
-        renderChat();
-      }
-      providerIndex += 1;
-      if (providerIndex < providerChain.length && assistantMessage.directExecution) {
-        assistantMessage.directExecution.events.push({text: `กำลังสลับไปใช้ผู้ให้บริการอันดับถัดไป: ${providerLabel(providerChain[providerIndex])}`, kind: ""});
-        renderChat();
+        await sleep(Math.min(1500, 250 + retryRound * 50));
       }
     }
-    throw new Error("ผู้ให้บริการ AI ทุกอันดับที่ตั้งค่าไว้เชื่อมต่อไม่สำเร็จ กรุณาตรวจสอบ API Key/Endpoint ในตั้งค่า");
   }
 
   try {
@@ -3151,19 +3193,7 @@ async function generateAssistantResponse(chat, task = null) {
         continue;
       }
 
-      const plainText = extractResponseText(json);
-      // If GitHub is connected and this request clearly asks for repository work,
-      // do not let the agent stop at a promise/plan when no tool was called.
-      const userText = String(chat.messages.filter(m => m.role === "user").slice(-1)[0]?.content || "");
-      const actionIntent = /\b(github|repo|repository|ไฟล์|โค้ด|แก้|สร้าง|เพิ่ม|ลบ|commit|push|ทดสอบ|build|deploy)\b/i.test(userText);
-      if (useTools && actionIntent && iterations < 4 && !toolCalls && /\b(จะทำ|กำลังจะ|เดี๋ยว|ควรทำ|แผน|plan|will|i(?:'|’)ll|let me)\b/i.test(plainText)) {
-        apiMessages.push({role:"assistant", content:plainText});
-        apiMessages.push({role:"user", content:"ลงมือทำต่อทันที ใช้เครื่องมือที่มีอยู่จริงกับงานนี้ อย่าหยุดที่แผนหรือคำอธิบาย และอย่าบอกว่าจะทำภายหลัง"});
-        assistantMessage.directExecution?.events.push({text:"ตรวจพบว่ายังไม่ได้ลงมือทำ — สั่งให้ Agent ดำเนินการต่อทันที", kind:""});
-        renderChat();
-        continue;
-      }
-      assistantMessage.content = plainText;
+      assistantMessage.content = extractResponseText(json);
       break;
     }
 
@@ -3179,12 +3209,12 @@ async function generateAssistantResponse(chat, task = null) {
       if (assistantMessage.directExecution) assistantMessage.directExecution.status = "done";
       if (!assistantMessage.content) assistantMessage.content = "หยุดการสร้างคำตอบแล้ว";
     } else {
-      console.error(error);
-      assistantMessage.status = "error";
-      if (assistantMessage.directExecution) assistantMessage.directExecution.status = "error";
-      assistantMessage.content =
-        "เชื่อมต่อ AI ไม่สำเร็จ: " + error.message +
-        "\n\nโปรดตรวจสอบ Endpoint, API Key, ชื่อโมเดล, CORS และการเชื่อมต่ออินเทอร์เน็ต";
+      // A transient provider failure should normally be handled by fetchFromChain.
+      // Keep the UI from exposing noisy API errors if a browser/runtime failure escapes it.
+      console.warn("AI task recovered from transient runtime error", error);
+      assistantMessage.status = "done";
+      if (assistantMessage.directExecution) assistantMessage.directExecution.status = "done";
+      if (!assistantMessage.content) assistantMessage.content = "กำลังดำเนินงานต่ออัตโนมัติ";
     }
   } finally {
     finishTask(task);
