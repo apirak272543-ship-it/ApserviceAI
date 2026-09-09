@@ -68,6 +68,18 @@ async function publish(provider: string, userId: string, payload: any) {
   const body = String(payload.body || "").trim();
   if (!body) throw new Error("ข้อความโพสต์ว่าง");
   if (provider === "facebook") {
+    if (payload.image_base64) {
+      const raw = String(payload.image_base64).replace(/^data:[^;]+;base64,/, "");
+      const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0));
+      const form = new FormData();
+      form.append("source", new Blob([bytes], { type: String(payload.image_mime_type || "image/png") }), "ai-generated.png");
+      form.append("message", body);
+      form.append("access_token", token);
+      const response = await fetch(`${META_GRAPH_URL}/${connection.provider_account_id}/photos`, { method: "POST", body: form });
+      const result = await response.json();
+      if (!response.ok || result.error) throw new Error(result.error?.message || "Facebook image publish failed");
+      return { provider, published: true, generated: true, external_url_required: false, id: result.id || result.post_id };
+    }
     const form = new URLSearchParams({ message: body, access_token: token });
     const response = await fetch(`${META_GRAPH_URL}/${connection.provider_account_id}/feed`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
     const result = await response.json();

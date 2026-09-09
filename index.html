@@ -2384,9 +2384,64 @@ async function githubListCommits(branch) {
   return (data || []).map(c => ({sha: c.sha.slice(0,7), message: c.commit.message, author: c.commit.author?.name, date: c.commit.author?.date}));
 }
 
+async function imageGenerationProvider() {
+  const rows = (state.settings.providers || []).filter(p => p.enabled !== false && p.apiKey);
+  const google = rows.find(p => p.presetId === "google" || /generativelanguage\.googleapis\.com/.test(p.endpoint || ""));
+  const apiKey = google?.apiKey || (state.settings.provider === "google" ? state.settings.apiKey : "");
+  if (!apiKey) throw new Error("ยังไม่มี Google Gemini API Key สำหรับสร้างภาพ");
+  return apiKey;
+}
+async function generateImageBase64(prompt) {
+  const apiKey = await imageGenerationProvider();
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "x-goog-api-key": apiKey},
+    body: JSON.stringify({model: "gemini-3.1-flash-image", input: prompt})
+  });
+  const data = await response.json().catch(() => ({}));
+  const image = data.output_image || (data.steps || []).flatMap(step => step.content || []).find(item => item.type === "image");
+  if (!response.ok || !image?.data) throw new Error(data.error?.message || `Image Generation API error (HTTP ${response.status})`);
+  return {base64: image.data, mimeType: image.mime_type || "image/png"};
+}
+async function postGeneratedFacebookImage({body, base64, mimeType}) {
+  const policy = loadPolicy();
+  if (policy.emergencyStop) throw new Error("ระบบถูกหยุดฉุกเฉินใน Policy Center");
+  if (!policy.allowFacebook) throw new Error("Facebook ถูกปิดใน Policy Center");
+  if (facebookDirectConfigured()) {
+    const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
+    const form = new FormData();
+    form.append("source", new Blob([bytes], {type: mimeType}), "ai-generated.png");
+    form.append("message", body);
+    form.append("access_token", state.settings.fbPageToken.trim());
+    const response = await fetch(`${PUBLIC_ENDPOINTS.metaGraph}/${encodeURIComponent(state.settings.fbPageId.trim())}/photos`, {method: "POST", body: form});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.error) throw new Error(data.error?.message || `Facebook image upload error (HTTP ${response.status})`);
+    return {provider: "facebook", published: true, id: data.id || data.post_id, generated: true, external_url_required: false};
+  }
+  if (!socialConfigured()) throw new Error("ยังไม่ได้เชื่อมต่อ Facebook Page");
+  const list = await socialFunction("list");
+  const target = (list.data || []).find(item => item.provider === "facebook");
+  if (!target) throw new Error("ยังไม่มี Facebook Page ที่เชื่อมต่อ");
+  return await socialFunction("publish", "facebook", "", {connection_id: target.id, body, image_base64: base64, image_mime_type: mimeType});
+}
+async function executeImagePublishTool(name, args = {}) {
+  if (name === "generate_image") return await generateImageBase64(String(args.prompt || "").trim());
+  if (name === "generate_image_and_publish_facebook") {
+    const body = String(args.body || "").trim();
+    const prompt = String(args.image_prompt || args.prompt || "").trim();
+    if (!body || !prompt) throw new Error("ต้องมีข้อความโพสต์และคำสั่งสร้างภาพ");
+    const image = await generateImageBase64(prompt);
+    return await postGeneratedFacebookImage({body, base64: image.base64, mimeType: image.mimeType});
+  }
+  throw new Error("ไม่รู้จัก image tool: " + name);
+}
 const SOCIAL_TOOLS = [
   {type: "function", function: {name: "social_list_accounts", description: "ตรวจบัญชีแพลตฟอร์มภายนอกที่เชื่อมต่ออยู่ เช่น Facebook Page และ TikTok โดยไม่แสดง Token", parameters: {type: "object", properties: {}}}},
   {type: "function", function: {name: "social_publish", description: "โหมด Content Creator อัตโนมัติ: เมื่อผู้ใช้สั่งให้โพสต์ ให้คิด/เขียนข้อความเองและเรียกเครื่องมือนี้เพื่อโพสต์จริงทันที ไม่สร้าง Draft ไม่แสดง Preview และไม่ถามยืนยันซ้ำ ใช้กับคำสั่งที่ผู้ใช้สั่งโพสต์อย่างชัดเจนเท่านั้น", parameters: {type: "object", properties: {platform: {type: "string", enum: ["facebook", "tiktok"]}, body: {type: "string", description: "ข้อความคอนเทนต์ที่ AI คิดและเขียนเสร็จแล้ว"}, media_url: {type: "string", description: "URL รูปภาพหรือวิดีโอสาธารณะ ถ้ามี"}}, required: ["platform", "body"]}}}
+ ];
+const IMAGE_TOOLS = [
+  {type: "function", function: {name: "generate_image", description: "สร้างภาพด้วย Gemini Image Generation แล้วคืนข้อมูลภาพให้ระบบ ไม่ใช้ URL ภายนอก", parameters: {type: "object", properties: {prompt: {type: "string"}}, required: ["prompt"]}}},
+  {type: "function", function: {name: "generate_image_and_publish_facebook", description: "สร้างภาพ AI และโพสต์ภาพพร้อมข้อความลง Facebook Page ทันทีในขั้นตอนเดียว ใช้เมื่อผู้ใช้สั่งสร้างภาพพร้อมโพสต์ ห้ามสร้าง Draft ห้ามถามยืนยันซ้ำ และไม่ใช้ลิงก์รูปภายนอก", parameters: {type: "object", properties: {image_prompt: {type: "string", description: "คำอธิบายภาพที่ต้องสร้าง"}, body: {type: "string", description: "ข้อความโพสต์"}}, required: ["image_prompt", "body"]}}}
 ];
 function socialToolLabel(name) {
   return name === "social_list_accounts" ? "กำลังตรวจบัญชีโซเชียลที่เชื่อมต่อ" : "กำลังคิดคอนเทนต์และโพสต์จริง";
@@ -3310,7 +3365,7 @@ function buildSystemPrompt(latestUserText = "") {
     parts.push(`คุณยังไม่ได้เชื่อมต่อกับ GitHub เพราะผู้ใช้ยังไม่ได้กรอก GitHub Personal Access Token ในหน้าตั้งค่า ถ้าผู้ใช้ขอให้อ่าน แก้ไข หรือดูโค้ดในรีโพ GitHub ใดๆ ห้ามแกล้งทำเป็นดึงข้อมูลหรือ "กำลังประมวลผล" และห้ามอ้างว่าไม่มีเบราว์เซอร์หรืออินเทอร์เน็ตเป็นสาเหตุ ให้บอกตรงๆ ว่า: ต้องเปิดปุ่มตั้งค่า (รูปเฟือง) แล้วไปแท็บ "GitHub (Direct API)" กรอก Personal Access Token (แนะนำ Fine-grained token ของ GitHub) ก่อน จากนั้นจะสามารถให้คุณอ่าน/แก้/ค้นหาไฟล์ และดูรีโพทั้งหมดที่ Token เข้าถึงได้ทันทีโดยไม่ต้องระบุ owner/repo ล่วงหน้า`);
   }
 
-  parts.push(`โหมด Content Creator อัตโนมัติ: หากคำสั่งผู้ใช้มีเจตนาให้โพสต์หรือเผยแพร่ไปยัง Facebook หรือ TikTok ให้ลงมือทำทันทีในคำตอบเดียว ห้ามสร้าง Draft ห้ามเรียก saveContentDraft ห้ามแสดง Preview และห้ามถามยืนยันซ้ำ ให้คิดหัวข้อ แคปชัน และข้อความเอง แล้วเรียก social_publish เพื่อโพสต์จริง หากไม่มี media_url ให้โพสต์ข้อความทันทีสำหรับ Facebook; TikTok ต้องมี media_url วิดีโอที่เข้าถึงได้สาธารณะ หากผู้ใช้สั่งสร้างคอนเทนต์แต่ไม่ได้สั่งโพสต์ ให้สร้างคอนเทนต์อย่างเดียว`);
+  parts.push(`โหมด Content Creator อัตโนมัติ: หากคำสั่งผู้ใช้มีเจตนาให้โพสต์หรือเผยแพร่ไปยัง Facebook หรือ TikTok ให้ลงมือทำทันทีในคำตอบเดียว ห้ามสร้าง Draft ห้ามเรียก saveContentDraft ห้ามแสดง Preview และห้ามถามยืนยันซ้ำ ให้คิดหัวข้อ แคปชัน และข้อความเอง แล้วเรียก social_publish เพื่อโพสต์จริง หากผู้ใช้สั่งสร้างภาพพร้อมโพสต์ ให้เรียก generate_image_and_publish_facebook เพื่อสร้างภาพและอัปโหลดตรงเข้า Facebook โดยไม่ใช้ URL ภายนอก; หากไม่มี media_url ให้โพสต์ข้อความทันทีสำหรับ Facebook; TikTok ต้องมี media_url วิดีโอที่เข้าถึงได้สาธารณะ หากผู้ใช้สั่งสร้างคอนเทนต์แต่ไม่ได้สั่งโพสต์ ให้สร้างคอนเทนต์อย่างเดียว`);
   return parts.join("\n\n");
 }
 
@@ -3570,7 +3625,7 @@ async function generateAssistantResponse(chat) {
         stream: useTools ? false : state.settings.stream
       };
       if (useTools) {
-        requestBody.tools = [...GITHUB_TOOLS, ...SOCIAL_TOOLS];
+        requestBody.tools = [...GITHUB_TOOLS, ...SOCIAL_TOOLS, ...IMAGE_TOOLS];
         requestBody.tool_choice = "auto";
       }
 
@@ -3599,11 +3654,11 @@ async function generateAssistantResponse(chat) {
             : "";
           assistantMessage.directExecution.events.push({text: `${name}(${argsPreview})`, kind: ""});
           renderChat();
-          const task = taskAdd(`${SOCIAL_TOOLS.some(tool => tool.function.name === name) ? socialToolLabel(name) : githubToolLabel(name)} ${argsPreview}`.trim());
+          const task = taskAdd(`${IMAGE_TOOLS.some(tool => tool.function.name === name) ? "กำลังสร้างภาพ AI และเตรียมโพสต์" : (SOCIAL_TOOLS.some(tool => tool.function.name === name) ? socialToolLabel(name) : githubToolLabel(name))} ${argsPreview}`.trim());
           taskUpdate(task, "running");
           let resultPayload;
           try {
-            resultPayload = SOCIAL_TOOLS.some(tool => tool.function.name === name) ? await executeSocialTool(name, args) : await executeGithubTool(name, args);
+            resultPayload = IMAGE_TOOLS.some(tool => tool.function.name === name) ? await executeImagePublishTool(name, args) : (SOCIAL_TOOLS.some(tool => tool.function.name === name) ? await executeSocialTool(name, args) : await executeGithubTool(name, args));
             const summary = name === "github_write_file" && resultPayload.diff
               ? resultPayload.diff
               : JSON.stringify(resultPayload).slice(0, 140);
