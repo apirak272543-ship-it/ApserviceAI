@@ -24,3 +24,8 @@ Reference นี้ใช้กับงาน frontend และ browser APIs �
 - Repository: https://github.com/GoogleChrome/modern-web-guidance-src
 - Skill path: `guides/modern-web-guidance/SKILL.md`
 - Source revision: ดูไฟล์ `SOURCE_COMMIT`
+
+
+## Local verification
+
+The local `index.html` was opened after the accessibility update. The skip link, PIN dialog, labeled search field, labeled composer controls, `role="log"` message list, and settings dialog landmark all rendered without markup/runtime failure in the browser preview.

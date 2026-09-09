@@ -72,6 +72,27 @@ select:focus-visible {
 .hidden {
   display: none !important;
 }
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  z-index: 100;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: #fff;
+  background: var(--accent);
+  transform: translateY(-180%);
+  transition: transform .18s ease;
+}
+.skip-link:focus-visible { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
 .icon {
   width: 20px;
   height: 20px;
@@ -1319,6 +1340,7 @@ html[data-theme="dark"] .alert {
 </style>
 </head>
 <body>
+<a class="skip-link" href="#messageScroll">ข้ามไปยังบทสนทนา</a>
 
 <div id="pinLock" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
   <div class="pin-card">
@@ -1347,9 +1369,9 @@ html[data-theme="dark"] .alert {
         <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
       </button>
     </div>
-    <div class="search-wrap">
+    <div class="search-wrap" role="search">
       <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-      <input id="chatSearch" type="search" placeholder="ค้นหาแชต" autocomplete="off">
+      <input id="chatSearch" type="search" placeholder="ค้นหาแชต" aria-label="ค้นหาแชต" autocomplete="off">
     </div>
     <div id="chatList"></div>
     <div class="sidebar-footer">
@@ -1368,10 +1390,10 @@ html[data-theme="dark"] .alert {
 
   <main id="main">
     <header id="header">
-      <button class="icon-button" id="mobileMenuButton" title="เปิดเมนู">
+      <button class="icon-button" id="mobileMenuButton" title="เปิดเมนู" aria-label="เปิดเมนู">
         <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
-      <button class="icon-button" id="showSidebarButton" title="เปิดแถบด้านข้าง">
+      <button class="icon-button" id="showSidebarButton" title="เปิดแถบด้านข้าง" aria-label="เปิดแถบด้านข้าง">
         <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
       </button>
       <div class="header-center">
@@ -1381,10 +1403,10 @@ html[data-theme="dark"] .alert {
         </button>
       </div>
       <div class="header-actions">
-        <button class="icon-button optional" id="exportQuickButton" title="ส่งออกข้อมูล">
+        <button class="icon-button optional" id="exportQuickButton" title="ส่งออกข้อมูล" aria-label="ส่งออกข้อมูล">
           <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg>
         </button>
-        <button class="icon-button" id="newChatHeaderButton" title="แชตใหม่">
+        <button class="icon-button" id="newChatHeaderButton" title="แชตใหม่" aria-label="แชตใหม่">
           <svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
         </button>
       </div>
@@ -1414,7 +1436,7 @@ html[data-theme="dark"] .alert {
             </button>
           </div>
         </div>
-        <div id="messageList"></div>
+        <div id="messageList" role="log" aria-live="polite" aria-relevant="additions"></div>
       </div>
 
       <button id="scrollBottom" class="hidden" title="เลื่อนไปล่างสุด">
@@ -1429,14 +1451,14 @@ html[data-theme="dark"] .alert {
       <div id="composerArea">
         <div id="attachmentPreview"></div>
         <div id="composer">
-          <button class="composer-button" id="plusButton" title="เพิ่มไฟล์">
+          <button class="composer-button" id="plusButton" title="เพิ่มไฟล์" aria-label="เพิ่มไฟล์">
             <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
           </button>
-          <textarea id="promptInput" rows="1" placeholder="ส่งข้อความถึง AI"></textarea>
-          <button class="composer-button" id="micButton" title="ป้อนข้อความด้วยเสียง">
+          <textarea id="promptInput" rows="1" placeholder="ส่งข้อความถึง AI" aria-label="ข้อความที่จะส่งให้ AI"></textarea>
+          <button class="composer-button" id="micButton" title="ป้อนข้อความด้วยเสียง" aria-label="ป้อนข้อความด้วยเสียง">
             <svg class="icon" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>
           </button>
-          <button class="composer-button" id="sendButton" disabled title="ส่งข้อความ">
+          <button class="composer-button" id="sendButton" disabled title="ส่งข้อความ" aria-label="ส่งข้อความ">
             <svg class="icon send-icon" viewBox="0 0 24 24"><path d="M12 19V5m0 0-5 5m5-5 5 5"/></svg>
             <svg class="icon stop-icon hidden" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
           </button>
@@ -1468,9 +1490,9 @@ html[data-theme="dark"] .alert {
 <div class="drop-overlay" id="dropOverlay">ปล่อยไฟล์เพื่อแนบกับข้อความ</div>
 <div class="backdrop" id="modalBackdrop"></div>
 
-<section class="modal" id="settingsModal" role="dialog" aria-modal="true">
+<section class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="modal-header">
-    <h2>การตั้งค่า</h2>
+    <h2 id="settingsTitle">การตั้งค่า</h2>
     <button class="icon-button" id="closeSettingsButton">
       <svg class="icon" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
     </button>
