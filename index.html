@@ -2319,7 +2319,7 @@ async function githubSelectRepository({owner, repo, branch}) {
   return {selected: `${state.settings.githubOwner}/${state.settings.githubRepo}`, branch: state.settings.githubBranch, private: data.private, default_branch: data.default_branch};
 }
 
-const DEFAULT_POLICY = {allowEdit:true, allowCommit:true, allowFacebook:false, allowTiktok:false, branches:["main"], paths:["*"], maxPostsPerDay:5, emergencyStop:false};
+const DEFAULT_POLICY = {allowEdit:true, allowCommit:true, allowFacebook:true, allowTiktok:true, branches:["main"], paths:["*"], maxPostsPerDay:5, emergencyStop:false};
 function loadPolicy() { try { return {...DEFAULT_POLICY, ...JSON.parse(localStorage.getItem("nova_policy") || "{}")} } catch { return {...DEFAULT_POLICY}; } }
 function savePolicy(policy) { localStorage.setItem("nova_policy", JSON.stringify(policy)); }
 function policyMatch(value, patterns) { return (patterns||[]).some(pattern => { const escaped=String(pattern).trim().split("*").map(part => part.replace(/[.+^${}()|[\]\\]/g,"\\$&")).join(".*"); return new RegExp("^"+escaped+"$").test(value); }); }
@@ -2384,6 +2384,43 @@ async function githubListCommits(branch) {
   return (data || []).map(c => ({sha: c.sha.slice(0,7), message: c.commit.message, author: c.commit.author?.name, date: c.commit.author?.date}));
 }
 
+const SOCIAL_TOOLS = [
+  {type: "function", function: {name: "social_list_accounts", description: "ตรวจบัญชีแพลตฟอร์มภายนอกที่เชื่อมต่ออยู่ เช่น Facebook Page และ TikTok โดยไม่แสดง Token", parameters: {type: "object", properties: {}}}},
+  {type: "function", function: {name: "social_publish", description: "โหมด Content Creator อัตโนมัติ: เมื่อผู้ใช้สั่งให้โพสต์ ให้คิด/เขียนข้อความเองและเรียกเครื่องมือนี้เพื่อโพสต์จริงทันที ไม่สร้าง Draft ไม่แสดง Preview และไม่ถามยืนยันซ้ำ ใช้กับคำสั่งที่ผู้ใช้สั่งโพสต์อย่างชัดเจนเท่านั้น", parameters: {type: "object", properties: {platform: {type: "string", enum: ["facebook", "tiktok"]}, body: {type: "string", description: "ข้อความคอนเทนต์ที่ AI คิดและเขียนเสร็จแล้ว"}, media_url: {type: "string", description: "URL รูปภาพหรือวิดีโอสาธารณะ ถ้ามี"}}, required: ["platform", "body"]}}}
+];
+function socialToolLabel(name) {
+  return name === "social_list_accounts" ? "กำลังตรวจบัญชีโซเชียลที่เชื่อมต่อ" : "กำลังคิดคอนเทนต์และโพสต์จริง";
+}
+async function executeSocialTool(name, args = {}) {
+  if (name === "social_list_accounts") {
+    const accounts = [];
+    if (facebookDirectConfigured()) accounts.push({provider: "facebook", id: state.settings.fbPageId, name: "Facebook Page", ready: true});
+    if (tiktokDirectConfigured()) accounts.push({provider: "tiktok", name: "TikTok", ready: true});
+    if (socialConfigured()) {
+      try { const result = await socialFunction("list"); (result.data || []).forEach(item => accounts.push({provider: item.provider, id: item.id, name: item.display_name, ready: true})); } catch (error) { accounts.push({error: error.message}); }
+    }
+    return {accounts};
+  }
+  if (name !== "social_publish") throw new Error("ไม่รู้จัก social tool: " + name);
+  const platform = String(args.platform || "").toLowerCase();
+  const body = String(args.body || "").trim();
+  const mediaUrl = String(args.media_url || "").trim();
+  if (!body) throw new Error("ต้องมีข้อความคอนเทนต์ก่อนโพสต์");
+  const policy = loadPolicy();
+  if (policy.emergencyStop) throw new Error("ระบบถูกหยุดฉุกเฉินใน Policy Center");
+  if (platform === "facebook") {
+    if (!policy.allowFacebook) throw new Error("Facebook ถูกปิดใน Policy Center — เปิดสิทธิ์เผยแพร่ Facebook ก่อน");
+    if (facebookDirectConfigured()) return await postToFacebookDirect({body, mediaUrl});
+  } else if (platform === "tiktok") {
+    if (!policy.allowTiktok) throw new Error("TikTok ถูกปิดใน Policy Center — เปิดสิทธิ์เผยแพร่ TikTok ก่อน");
+    if (tiktokDirectConfigured()) return await postToTiktokDirect({body, mediaUrl});
+  } else throw new Error("รองรับตอนนี้เฉพาะ facebook และ tiktok");
+  if (!socialConfigured()) throw new Error(`ยังไม่ได้เชื่อมต่อ ${platform} สำหรับการโพสต์จริง`);
+  const list = await socialFunction("list");
+  const target = (list.data || []).find(item => item.provider === platform);
+  if (!target) throw new Error(`ยังไม่มีบัญชี ${platform} ที่เชื่อมต่อ`);
+  return await socialFunction("publish", platform, "", {connection_id: target.id, body, media_url: mediaUrl});
+}
 const GITHUB_TOOLS = [
   {type: "function", function: {name: "github_list_repositories", description: "แสดงรายการรีโพสิทอรี GitHub ทั้งหมดที่ Token ปัจจุบันเข้าถึงได้ (ทั้งของผู้ใช้และองค์กร) เรียกใช้เมื่อผู้ใช้พูดถึงรีโพ/โปรเจกต์ที่ยังไม่ได้เลือกไว้ หรือไม่แน่ใจว่ามีรีโพอะไรบ้าง", parameters: {type: "object", properties: {}}}},
   {type: "function", function: {name: "github_select_repository", description: "เลือกรีโพสิทอรีเป้าหมายที่จะอ่าน/แก้ไขต่อจากนี้ ต้องเรียกก่อนใช้เครื่องมือไฟล์อื่นๆ ทุกครั้งที่ต้องการเปลี่ยนไปทำงานกับรีโพอื่น", parameters: {type: "object", properties: {owner: {type: "string", description: "เจ้าของรีโพ เช่น username หรือชื่อองค์กร"}, repo: {type: "string", description: "ชื่อรีโพสิทอรี"}, branch: {type: "string", description: "branch ที่ต้องการทำงานด้วย ถ้าไม่ระบุจะใช้ default branch ของรีโพ"}}, required: ["owner", "repo"]}}},
@@ -3273,6 +3310,7 @@ function buildSystemPrompt(latestUserText = "") {
     parts.push(`คุณยังไม่ได้เชื่อมต่อกับ GitHub เพราะผู้ใช้ยังไม่ได้กรอก GitHub Personal Access Token ในหน้าตั้งค่า ถ้าผู้ใช้ขอให้อ่าน แก้ไข หรือดูโค้ดในรีโพ GitHub ใดๆ ห้ามแกล้งทำเป็นดึงข้อมูลหรือ "กำลังประมวลผล" และห้ามอ้างว่าไม่มีเบราว์เซอร์หรืออินเทอร์เน็ตเป็นสาเหตุ ให้บอกตรงๆ ว่า: ต้องเปิดปุ่มตั้งค่า (รูปเฟือง) แล้วไปแท็บ "GitHub (Direct API)" กรอก Personal Access Token (แนะนำ Fine-grained token ของ GitHub) ก่อน จากนั้นจะสามารถให้คุณอ่าน/แก้/ค้นหาไฟล์ และดูรีโพทั้งหมดที่ Token เข้าถึงได้ทันทีโดยไม่ต้องระบุ owner/repo ล่วงหน้า`);
   }
 
+  parts.push(`โหมด Content Creator อัตโนมัติ: หากคำสั่งผู้ใช้มีเจตนาให้โพสต์หรือเผยแพร่ไปยัง Facebook หรือ TikTok ให้ลงมือทำทันทีในคำตอบเดียว ห้ามสร้าง Draft ห้ามเรียก saveContentDraft ห้ามแสดง Preview และห้ามถามยืนยันซ้ำ ให้คิดหัวข้อ แคปชัน และข้อความเอง แล้วเรียก social_publish เพื่อโพสต์จริง หากไม่มี media_url ให้โพสต์ข้อความทันทีสำหรับ Facebook; TikTok ต้องมี media_url วิดีโอที่เข้าถึงได้สาธารณะ หากผู้ใช้สั่งสร้างคอนเทนต์แต่ไม่ได้สั่งโพสต์ ให้สร้างคอนเทนต์อย่างเดียว`);
   return parts.join("\n\n");
 }
 
@@ -3532,7 +3570,7 @@ async function generateAssistantResponse(chat) {
         stream: useTools ? false : state.settings.stream
       };
       if (useTools) {
-        requestBody.tools = GITHUB_TOOLS;
+        requestBody.tools = [...GITHUB_TOOLS, ...SOCIAL_TOOLS];
         requestBody.tool_choice = "auto";
       }
 
@@ -3561,11 +3599,11 @@ async function generateAssistantResponse(chat) {
             : "";
           assistantMessage.directExecution.events.push({text: `${name}(${argsPreview})`, kind: ""});
           renderChat();
-          const task = taskAdd(`${githubToolLabel(name)} ${argsPreview}`.trim());
+          const task = taskAdd(`${SOCIAL_TOOLS.some(tool => tool.function.name === name) ? socialToolLabel(name) : githubToolLabel(name)} ${argsPreview}`.trim());
           taskUpdate(task, "running");
           let resultPayload;
           try {
-            resultPayload = await executeGithubTool(name, args);
+            resultPayload = SOCIAL_TOOLS.some(tool => tool.function.name === name) ? await executeSocialTool(name, args) : await executeGithubTool(name, args);
             const summary = name === "github_write_file" && resultPayload.diff
               ? resultPayload.diff
               : JSON.stringify(resultPayload).slice(0, 140);
