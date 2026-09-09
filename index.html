@@ -491,6 +491,14 @@ body.sidebar-collapsed #sidebar {
 .progress-track { margin-top: 8px; height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .progress-track.hidden { display: none; }
 .progress-bar { height: 100%; background: var(--accent, #10a37f); border-radius: 999px; transition: width .2s ease; }
+.generated-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.generated-file-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); text-decoration: none; font-size: 13px; }
+.generated-file-chip:hover { background: var(--border); }
+.generated-file-size { color: var(--muted); font-size: 11.5px; }
+.connector-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin: 12px 0; background: var(--surface-2); }
+.connector-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.connector-icon { font-size: 22px; }
+.page-picker-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 6px; }
 .message-content > :first-child {
   margin-top: 0;
 }
@@ -1470,6 +1478,7 @@ html[data-theme="dark"] .alert {
   <div class="modal-body">
     <nav class="settings-nav">
       <button class="settings-tab active" data-page="general">ทั่วไป</button>
+      <button class="settings-tab" data-page="connectors">Connectors</button>
       <button class="settings-tab" data-page="connection">การเชื่อมต่อ AI</button>
       <button class="settings-tab" data-page="social">โซเชียลและคอนเทนต์</button>
       <button class="settings-tab" data-page="behavior">พฤติกรรมโมเดล</button>
@@ -1507,6 +1516,42 @@ html[data-theme="dark"] .alert {
           <input id="settingEnterSend" type="checkbox">
           <span class="switch-track"></span>
         </label>
+      </div>
+    </div>
+
+    <div class="settings-page" data-page="connectors">
+      <h3>Connectors</h3>
+      <div class="alert">เชื่อมต่อบริการต่างๆ ไว้ที่เดียว กดปุ่มเดียวได้จริงสำหรับ Facebook/Instagram (ผ่านหน้าต่างล็อกอินจริงของ Facebook) ส่วน GitHub/TikTok ยังต้องวางคีย์เอง เพราะผู้ให้บริการ 2 เจ้านี้บังคับให้การแลกโทเคนต้องทำจากฝั่งเซิร์ฟเวอร์เท่านั้น (มีตัว secret ที่ห้ามฝังในเว็บฝั่งผู้ใช้) — ระบบนี้เป็นเว็บไฟล์เดียวไม่มีเซิร์ฟเวอร์ของตัวเอง จึงทำแบบ one-click เต็มรูปแบบให้ 2 เจ้านี้ไม่ได้จริงๆ ไม่ใช่ข้อจำกัดที่เลี่ยงได้</div>
+
+      <div class="connector-card">
+        <div class="connector-card-head"><span class="connector-icon">📘</span><div><strong>Facebook Page</strong><div class="form-help" id="fbConnectorStatus">ยังไม่ได้เชื่อมต่อ</div></div></div>
+        <div id="fbAppIdSetup">
+          <div class="form-help">ขั้นแรก (ทำครั้งเดียว): สร้าง Meta App ฟรีที่ <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com/apps</a> แล้วคัดลอก "App ID" (เป็นรหัสสาธารณะ ไม่ใช่ความลับ ไม่ใช่ App Secret) มาวางที่นี่ จากนั้นเพิ่มโดเมนที่โฮสต์เว็บนี้ใน Facebook Login > Settings > Valid OAuth Redirect URIs</div>
+          <div class="form-row"><label for="fbAppId">Facebook App ID</label><input class="text-input" id="fbAppId" placeholder="เช่น 1234567890123456"></div>
+        </div>
+        <div class="button-row">
+          <button class="primary-button" id="connectFacebookSdkButton">เชื่อมต่อ Facebook</button>
+          <button class="secondary-button hidden" id="disconnectFacebookButton">ตัดการเชื่อมต่อ</button>
+        </div>
+        <div id="fbPagePicker"></div>
+      </div>
+
+      <div class="connector-card">
+        <div class="connector-card-head"><span class="connector-icon">📷</span><div><strong>Instagram (บัญชีธุรกิจที่ผูกกับ Page)</strong><div class="form-help" id="igConnectorStatus">ยังไม่ได้เชื่อมต่อ</div></div></div>
+        <div class="form-help">ใช้ App ID เดียวกับ Facebook ด้านบน ต้องเชื่อมต่อ Facebook Page ที่ผูกกับบัญชี Instagram ธุรกิจ/ครีเอเตอร์ไว้ก่อน ระบบจะดึงบัญชี Instagram ที่ผูกกับ Page นั้นให้อัตโนมัติ</div>
+        <div class="button-row"><button class="secondary-button" id="detectInstagramButton">ตรวจหาบัญชี Instagram ที่ผูกไว้</button></div>
+      </div>
+
+      <div class="connector-card">
+        <div class="connector-card-head"><span class="connector-icon">🐙</span><div><strong>GitHub</strong><div class="form-help" id="ghConnectorStatus">ยังไม่ได้เชื่อมต่อ</div></div></div>
+        <div class="form-help">GitHub OAuth ต้องแลกโทเคนฝั่งเซิร์ฟเวอร์เท่านั้น วิธีที่ปลอดภัยและทำได้จริงในเว็บไฟล์เดียวคือใช้ Personal Access Token ซึ่งจริงๆ ทำงานได้ดีกว่า OAuth ทั่วไปสำหรับงานแบบนี้ (กำหนดสิทธิ์ได้ละเอียดกว่า)</div>
+        <div class="button-row"><button class="secondary-button" id="gotoGithubSettingsButton">ไปตั้งค่า GitHub Token</button></div>
+      </div>
+
+      <div class="connector-card">
+        <div class="connector-card-head"><span class="connector-icon">🎵</span><div><strong>TikTok</strong><div class="form-help" id="ttConnectorStatus">ยังไม่ได้เชื่อมต่อ</div></div></div>
+        <div class="form-help">TikTok บังคับแลกโทเคนฝั่งเซิร์ฟเวอร์เช่นกัน ต้องขอ Access Token จาก TikTok Developer Portal มาวางเอง</div>
+        <div class="button-row"><button class="secondary-button" id="gotoTiktokSettingsButton">ไปตั้งค่า TikTok Token</button></div>
       </div>
     </div>
 
@@ -1619,7 +1664,7 @@ html[data-theme="dark"] .alert {
       <div class="form-row"><label for="draftTitle">หัวข้อ</label><input class="text-input" id="draftTitle" maxlength="120" placeholder="เช่น โปรโมชันประจำสัปดาห์"></div>
       <div class="form-row"><label for="draftBody">ข้อความโพสต์</label><textarea class="textarea-input" id="draftBody" maxlength="5000" placeholder="เขียนข้อความที่ต้องการให้ AI ช่วยปรับหรือเตรียมไว้สำหรับ Preview"></textarea></div>
       <div class="form-row"><label for="draftMediaUrl">Media URL (จำเป็นสำหรับ TikTok, ไม่บังคับสำหรับ Facebook)</label><input class="text-input" id="draftMediaUrl" placeholder="https://.../video.mp4 หรือรูปภาพที่เข้าถึงได้สาธารณะ"></div>
-      <div class="form-row"><label>แพลตฟอร์มเป้าหมาย</label><div class="button-row"><label><input type="checkbox" class="draft-platform" value="facebook"> Facebook Page</label><label><input type="checkbox" class="draft-platform" value="tiktok"> TikTok</label></div></div>
+      <div class="form-row"><label>แพลตฟอร์มเป้าหมาย</label><div class="button-row"><label><input type="checkbox" class="draft-platform" value="facebook"> Facebook Page</label><label><input type="checkbox" class="draft-platform" value="instagram"> Instagram</label><label><input type="checkbox" class="draft-platform" value="tiktok"> TikTok</label></div></div>
       <div class="content-preview" id="contentPreview"><div class="form-help">Preview จะแสดงที่นี่</div></div>
       <div class="button-row"><button class="secondary-button" id="refreshPreviewButton">อัปเดต Preview</button><button class="primary-button" id="saveDraftButton">บันทึก Draft</button><button class="danger-button" id="publishDraftButton">เผยแพร่จริง</button></div>
       <div id="draftStatus" class="form-help"></div>
@@ -1694,6 +1739,16 @@ html[data-theme="dark"] .alert {
       <h3>เครื่องมือค้นเว็บ (Web Search / Web Fetch)</h3>
       <div class="alert">ใช้งานได้ทันทีโดยไม่ต้องตั้งค่าอะไรเลย (ผ่านบริการฟรี Jina AI Reader) — จำกัดประมาณ 20 ครั้ง/นาทีต่อเครื่อง ถ้าใช้บ่อยจนติด limit ใส่ Jina API Key ฟรีเพิ่มได้ (ขอได้ที่ jina.ai) จะได้โควตาสูงขึ้นเป็น 200 ครั้ง/นาที — โค้ด Python/JavaScript รันในเครื่องผู้ใช้เองผ่าน Pyodide/Sandbox ไม่ต้องตั้งค่าเช่นกัน</div>
       <div class="form-row"><label for="jinaApiKey">Jina API Key (ไม่บังคับ)</label><input class="text-input" id="jinaApiKey" type="password" autocomplete="off" placeholder="jina_..."></div>
+
+      <h3>ไฟล์ในเครื่อง (Local Filesystem — ขั้นสูง)</h3>
+      <div class="alert">ให้สิทธิ์ AI อ่าน/เขียนไฟล์ในโฟลเดอร์บนเครื่องนี้โดยตรง (ไม่ผ่าน GitHub) รองรับเฉพาะ Chrome/Edge บนเดสก์ท็อป (ไม่รองรับ Safari, Firefox, และเบราว์เซอร์บนมือถือ เพราะเป็นข้อจำกัดของเบราว์เซอร์เอง ไม่ใช่ของแอปนี้) ต้องกดอนุญาตใหม่ทุกครั้งที่เปิดแท็บใหม่ ไฟล์จะไม่ถูกอัปโหลดไปที่ไหนทั้งสิ้น อยู่ในเครื่องนี้ล้วนๆ</div>
+      <div class="button-row"><button class="secondary-button" id="grantLocalFolderButton">เลือกโฟลเดอร์ที่จะให้ AI เข้าถึง</button><span class="form-help" id="localFolderStatus">ยังไม่ได้ให้สิทธิ์</span></div>
+
+      <h3>การแจ้งเตือน (Notifications)</h3>
+      <div class="form-help">ให้ AI ส่งข้อความแจ้งเตือนออกไปยังช่องทางเหล่านี้ได้เมื่อสั่ง (เช่น "แจ้งเตือนใน Discord ว่า...") กรอกเฉพาะช่องที่จะใช้</div>
+      <div class="form-row"><label for="discordWebhookUrl">Discord Webhook URL</label><input class="text-input" id="discordWebhookUrl" placeholder="https://discord.com/api/webhooks/..."><div class="form-help">สร้างได้จาก Server Settings > Integrations > Webhooks ใน Discord</div></div>
+      <div class="form-row"><label for="telegramBotToken">Telegram Bot Token</label><input class="text-input" id="telegramBotToken" type="password" autocomplete="off" placeholder="123456:ABC-..."></div>
+      <div class="form-row"><label for="telegramChatId">Telegram Chat ID</label><input class="text-input" id="telegramChatId" placeholder="เช่น 123456789"></div>
 
       <h3>GitHub (Direct API — ทำงานทันที)</h3>
       <div class="alert">เชื่อมต่อ GitHub API ตรงจากเบราว์เซอร์เลย ไม่ผ่าน Supabase, ฐานข้อมูลงาน, คิวงาน หรือ Agent ตัวกลางใดๆ ต้องใช้ Personal Access Token เท่านั้น — ถ้าจะให้ AI สลับไปมาระหว่างหลายรีโพเองได้ (เช่นตอบเรื่องรีโพ A แล้วค่อยแก้รีโพ B) ให้ใช้ Classic token สิทธิ์ "repo" หรือ Fine-grained token ที่ให้สิทธิ์ครบทุกรีโพที่ต้องการ ถ้าจะจำกัดสิทธิ์แค่รีโพเดียวก็ทำได้เช่นกัน แต่ AI จะใช้ได้เฉพาะรีโพนั้น — Token จะถูกเก็บไว้ในเครื่องนี้เท่านั้น (localStorage ของเบราว์เซอร์) อย่าแชร์สกรีนช็อตหรือไฟล์ export ที่มี Token ติดไปด้วย</div>
@@ -1834,8 +1889,13 @@ const DEFAULT_SETTINGS = {
   localAiModel: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
   fbPageId: "",
   fbPageToken: "",
+  fbAppId: "",
+  igBusinessId: "",
   tiktokAccessToken: "",
-  jinaApiKey: ""
+  jinaApiKey: "",
+  discordWebhookUrl: "",
+  telegramBotToken: "",
+  telegramChatId: ""
 };
 const PUBLIC_ENDPOINTS = Object.freeze({
   githubApi: "https://api.github.com",
@@ -1902,7 +1962,8 @@ const state = {
   dragDepth: 0,
   recognition: null,
   taskQueue: [],
-  visibleCounts: {}
+  visibleCounts: {},
+  localDirHandle: null
 };
 
 function taskAdd(label) {
@@ -2027,6 +2088,103 @@ function socialConfigured() { return /^https:\/\/[^\s]+\.supabase\.co\/?$/.test(
 function facebookDirectConfigured() { return Boolean(state.settings.fbPageId && state.settings.fbPageToken); }
 function tiktokDirectConfigured() { return Boolean(state.settings.tiktokAccessToken); }
 
+// Real Facebook Login via the official JS SDK — runs entirely in the
+// browser. FB.login() opens Facebook's own consent popup and hands back a
+// user access token with no app secret ever touching this page. From that
+// user token we can list the Pages the person manages (each with its own
+// Page access token) purely client-side too, so the whole flow is genuinely
+// one-click after the App ID is set once.
+let fbSdkPromise = null;
+function loadFacebookSdk() {
+  if (!state.settings.fbAppId) throw new Error("กรุณาใส่ Facebook App ID ก่อน (ดูวิธีได้ในการ์ด Facebook)");
+  if (fbSdkPromise) return fbSdkPromise;
+  fbSdkPromise = new Promise((resolve, reject) => {
+    window.fbAsyncInit = function () {
+      window.FB.init({appId: state.settings.fbAppId, xfbml: false, version: "v23.0"});
+      resolve(window.FB);
+    };
+    if (window.FB) { window.fbAsyncInit(); return; }
+    const script = document.createElement("script");
+    script.src = "https://connect.facebook.net/en_US/sdk.js";
+    script.onerror = () => reject(new Error("โหลด Facebook SDK ไม่สำเร็จ"));
+    document.head.appendChild(script);
+  });
+  return fbSdkPromise;
+}
+function connectFacebookSdk() {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const FB = await loadFacebookSdk();
+      FB.login(async (response) => {
+        if (response.status !== "connected") { reject(new Error("ยกเลิกการเชื่อมต่อ หรือไม่ได้อนุญาตสิทธิ์")); return; }
+        try {
+          const pages = await new Promise((res) => FB.api("/me/accounts", {fields: "name,access_token,id"}, res));
+          if (pages.error) { reject(new Error(pages.error.message)); return; }
+          resolve(pages.data || []);
+        } catch (e) { reject(e); }
+      }, {scope: "pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management"});
+    } catch (e) { reject(e); }
+  });
+}
+function renderFbPagePicker(pages) {
+  const box = $("#fbPagePicker");
+  if (!pages.length) { box.innerHTML = `<div class="form-help">บัญชีนี้ไม่มี Page ที่จัดการอยู่ — ต้องเป็นแอดมินของ Facebook Page อย่างน้อย 1 หน้าก่อน</div>`; return; }
+  box.innerHTML = `<div class="form-help">เลือก Page ที่จะให้ AI โพสต์แทน:</div>` + pages.map(p =>
+    `<div class="page-picker-item"><span>${escapeHtml(p.name)}</span><button class="secondary-button select-fb-page" data-id="${escapeHtml(p.id)}" data-token="${escapeHtml(p.access_token)}" data-name="${escapeHtml(p.name)}">เลือก</button></div>`
+  ).join("");
+  box.querySelectorAll(".select-fb-page").forEach(btn => btn.addEventListener("click", () => {
+    state.settings.fbPageId = btn.dataset.id;
+    state.settings.fbPageToken = btn.dataset.token;
+    persistSettings();
+    box.innerHTML = "";
+    renderConnectorStatuses();
+    toast(`เชื่อมต่อ Page "${btn.dataset.name}" แล้ว`);
+  }));
+}
+async function detectInstagramAccount() {
+  if (!facebookDirectConfigured()) throw new Error("กรุณาเชื่อมต่อ Facebook Page ก่อน");
+  const data = await githubFetchLikeGraph(`/${state.settings.fbPageId}?fields=instagram_business_account{id,username}&access_token=${encodeURIComponent(state.settings.fbPageToken)}`);
+  if (!data.instagram_business_account) throw new Error("Page นี้ไม่ได้ผูกกับบัญชี Instagram ธุรกิจ/ครีเอเตอร์ — ผูกได้ในแอป Instagram > ตั้งค่า > บัญชี > สลับเป็นบัญชีธุรกิจแล้วเชื่อมกับ Page นี้");
+  state.settings.igBusinessId = data.instagram_business_account.id;
+  persistSettings();
+  return data.instagram_business_account;
+}
+async function githubFetchLikeGraph(path, options = {}) {
+  const response = await fetch(`${PUBLIC_ENDPOINTS.metaGraph}${path}`, options);
+  const data = await response.json();
+  if (!response.ok || data.error) throw new Error(data.error?.message || `HTTP ${response.status}`);
+  return data;
+}
+
+async function postToInstagramDirect({body, mediaUrl}) {
+  if (!state.settings.igBusinessId) throw new Error("ยังไม่ได้เชื่อมต่อบัญชี Instagram — ไปที่ Connectors แล้วกด 'ตรวจหาบัญชี Instagram ที่ผูกไว้' ก่อน");
+  if (!mediaUrl) throw new Error("Instagram ต้องมี Media URL (รูปหรือวิดีโอที่เข้าถึงได้สาธารณะ) เสมอ โพสต์ข้อความล้วนไม่ได้");
+  const token = state.settings.fbPageToken;
+  const isVideo = /\.(mp4|mov)(\?|$)/i.test(mediaUrl);
+  const create = await githubFetchLikeGraph(`/${state.settings.igBusinessId}/media`, {
+    method: "POST",
+    body: new URLSearchParams({[isVideo ? "video_url" : "image_url"]: mediaUrl, caption: body, access_token: token})
+  });
+  const publish = await githubFetchLikeGraph(`/${state.settings.igBusinessId}/media_publish`, {
+    method: "POST",
+    body: new URLSearchParams({creation_id: create.id, access_token: token})
+  });
+  return {provider: "instagram", id: publish.id};
+}
+
+function renderConnectorStatuses() {
+  const fb = $("#fbConnectorStatus");
+  if (fb) fb.textContent = facebookDirectConfigured() ? "✓ เชื่อมต่อแล้ว" : "ยังไม่ได้เชื่อมต่อ";
+  const disc = $("#disconnectFacebookButton");
+  if (disc) disc.classList.toggle("hidden", !facebookDirectConfigured());
+  const ig = $("#igConnectorStatus");
+  if (ig) ig.textContent = state.settings.igBusinessId ? "✓ เชื่อมต่อแล้ว" : "ยังไม่ได้เชื่อมต่อ";
+  const gh = $("#ghConnectorStatus");
+  if (gh) gh.textContent = state.settings.githubToken ? "✓ เชื่อมต่อแล้ว" : "ยังไม่ได้เชื่อมต่อ";
+  const tt = $("#ttConnectorStatus");
+  if (tt) tt.textContent = tiktokDirectConfigured() ? "✓ เชื่อมต่อแล้ว" : "ยังไม่ได้เชื่อมต่อ";
+}
+
 async function postToFacebookDirect({body, mediaUrl}) {
   if (!facebookDirectConfigured()) throw new Error("ยังไม่ได้กรอก Facebook Page ID / Page Access Token ในหน้าตั้งค่า");
   const pageId = state.settings.fbPageId.trim();
@@ -2124,6 +2282,11 @@ async function publishContentDraft() {
         continue;
       }
     }
+    if (platform === "instagram") {
+      if (!policy.allowFacebook) throw new Error("Policy ยังไม่อนุญาตให้เผยแพร่ Facebook/Instagram (เปิดได้ที่ Policy Center)");
+      results.push(await postToInstagramDirect({body, mediaUrl}));
+      continue;
+    }
     if (platform === "tiktok") {
       if (!policy.allowTiktok) throw new Error("Policy ยังไม่อนุญาตให้เผยแพร่ TikTok (เปิดได้ที่ Policy Center)");
       if (tiktokDirectConfigured()) {
@@ -2200,10 +2363,17 @@ function getKnowledgeContext(query) {
   const words = [...new Set(String(query).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])].filter(w => w.length > 1);
   if (!words.length) return "";
   const scored = list.map(item => {
-    const hay = (item.name + " " + item.content).toLowerCase();
-    const score = words.reduce((sum, w) => sum + (hay.includes(w) ? 1 : 0), 0);
+    const name = item.name.toLowerCase();
+    const body = item.content.toLowerCase();
+    let score = 0;
+    for (const w of words) {
+      const bodyHits = body.split(w).length - 1;
+      const nameHits = name.split(w).length - 1;
+      if (bodyHits) score += 1 + Math.log(1 + bodyHits); // frequency-weighted, diminishing returns
+      if (nameHits) score += nameHits * 3; // title matches count much more than body matches
+    }
     return {item, score};
-  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
+  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 4);
   if (!scored.length) return "";
   return scored.map(x => `### ${x.item.name}\n${x.item.content}`).join("\n\n");
 }
@@ -2319,7 +2489,7 @@ async function githubSelectRepository({owner, repo, branch}) {
   return {selected: `${state.settings.githubOwner}/${state.settings.githubRepo}`, branch: state.settings.githubBranch, private: data.private, default_branch: data.default_branch};
 }
 
-const DEFAULT_POLICY = {allowEdit:true, allowCommit:true, allowFacebook:true, allowTiktok:true, branches:["main"], paths:["*"], maxPostsPerDay:5, emergencyStop:false};
+const DEFAULT_POLICY = {allowEdit:true, allowCommit:true, allowFacebook:false, allowTiktok:false, branches:["main"], paths:["*"], maxPostsPerDay:5, emergencyStop:false};
 function loadPolicy() { try { return {...DEFAULT_POLICY, ...JSON.parse(localStorage.getItem("nova_policy") || "{}")} } catch { return {...DEFAULT_POLICY}; } }
 function savePolicy(policy) { localStorage.setItem("nova_policy", JSON.stringify(policy)); }
 function policyMatch(value, patterns) { return (patterns||[]).some(pattern => { const escaped=String(pattern).trim().split("*").map(part => part.replace(/[.+^${}()|[\]\\]/g,"\\$&")).join(".*"); return new RegExp("^"+escaped+"$").test(value); }); }
@@ -2384,98 +2554,18 @@ async function githubListCommits(branch) {
   return (data || []).map(c => ({sha: c.sha.slice(0,7), message: c.commit.message, author: c.commit.author?.name, date: c.commit.author?.date}));
 }
 
-async function imageGenerationProvider() {
-  const rows = (state.settings.providers || []).filter(p => p.enabled !== false && p.apiKey);
-  const google = rows.find(p => p.presetId === "google" || /generativelanguage\.googleapis\.com/.test(p.endpoint || ""));
-  const apiKey = google?.apiKey || (state.settings.provider === "google" ? state.settings.apiKey : "");
-  if (!apiKey) throw new Error("ยังไม่มี Google Gemini API Key สำหรับสร้างภาพ");
-  return apiKey;
-}
-async function generateImageBase64(prompt) {
-  const apiKey = await imageGenerationProvider();
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+async function githubCreateBranch(newBranch, fromBranch) {
+  requireRepoSelected();
+  if (!newBranch) throw new Error("กรุณาระบุชื่อ branch ใหม่");
+  const source = fromBranch || state.settings.githubBranch || "main";
+  const ref = await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/git/ref/heads/${encodeURIComponent(source)}`);
+  await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/git/refs`, {
     method: "POST",
-    headers: {"Content-Type": "application/json", "x-goog-api-key": apiKey},
-    body: JSON.stringify({model: "gemini-3.1-flash-image", input: prompt})
+    body: JSON.stringify({ref: `refs/heads/${newBranch}`, sha: ref.object.sha})
   });
-  const data = await response.json().catch(() => ({}));
-  const image = data.output_image || (data.steps || []).flatMap(step => step.content || []).find(item => item.type === "image");
-  if (!response.ok || !image?.data) throw new Error(data.error?.message || `Image Generation API error (HTTP ${response.status})`);
-  return {base64: image.data, mimeType: image.mime_type || "image/png"};
+  return {created: newBranch, from: source};
 }
-async function postGeneratedFacebookImage({body, base64, mimeType}) {
-  const policy = loadPolicy();
-  if (policy.emergencyStop) throw new Error("ระบบถูกหยุดฉุกเฉินใน Policy Center");
-  if (!policy.allowFacebook) throw new Error("Facebook ถูกปิดใน Policy Center");
-  if (facebookDirectConfigured()) {
-    const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
-    const form = new FormData();
-    form.append("source", new Blob([bytes], {type: mimeType}), "ai-generated.png");
-    form.append("message", body);
-    form.append("access_token", state.settings.fbPageToken.trim());
-    const response = await fetch(`${PUBLIC_ENDPOINTS.metaGraph}/${encodeURIComponent(state.settings.fbPageId.trim())}/photos`, {method: "POST", body: form});
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.error) throw new Error(data.error?.message || `Facebook image upload error (HTTP ${response.status})`);
-    return {provider: "facebook", published: true, id: data.id || data.post_id, generated: true, external_url_required: false};
-  }
-  if (!socialConfigured()) throw new Error("ยังไม่ได้เชื่อมต่อ Facebook Page");
-  const list = await socialFunction("list");
-  const target = (list.data || []).find(item => item.provider === "facebook");
-  if (!target) throw new Error("ยังไม่มี Facebook Page ที่เชื่อมต่อ");
-  return await socialFunction("publish", "facebook", "", {connection_id: target.id, body, image_base64: base64, image_mime_type: mimeType});
-}
-async function executeImagePublishTool(name, args = {}) {
-  if (name === "generate_image") return await generateImageBase64(String(args.prompt || "").trim());
-  if (name === "generate_image_and_publish_facebook") {
-    const body = String(args.body || "").trim();
-    const prompt = String(args.image_prompt || args.prompt || "").trim();
-    if (!body || !prompt) throw new Error("ต้องมีข้อความโพสต์และคำสั่งสร้างภาพ");
-    const image = await generateImageBase64(prompt);
-    return await postGeneratedFacebookImage({body, base64: image.base64, mimeType: image.mimeType});
-  }
-  throw new Error("ไม่รู้จัก image tool: " + name);
-}
-const SOCIAL_TOOLS = [
-  {type: "function", function: {name: "social_list_accounts", description: "ตรวจบัญชีแพลตฟอร์มภายนอกที่เชื่อมต่ออยู่ เช่น Facebook Page และ TikTok โดยไม่แสดง Token", parameters: {type: "object", properties: {}}}},
-  {type: "function", function: {name: "social_publish", description: "โหมด Content Creator อัตโนมัติ: เมื่อผู้ใช้สั่งให้โพสต์ ให้คิด/เขียนข้อความเองและเรียกเครื่องมือนี้เพื่อโพสต์จริงทันที ไม่สร้าง Draft ไม่แสดง Preview และไม่ถามยืนยันซ้ำ ใช้กับคำสั่งที่ผู้ใช้สั่งโพสต์อย่างชัดเจนเท่านั้น", parameters: {type: "object", properties: {platform: {type: "string", enum: ["facebook", "tiktok"]}, body: {type: "string", description: "ข้อความคอนเทนต์ที่ AI คิดและเขียนเสร็จแล้ว"}, media_url: {type: "string", description: "URL รูปภาพหรือวิดีโอสาธารณะ ถ้ามี"}}, required: ["platform", "body"]}}}
- ];
-const IMAGE_TOOLS = [
-  {type: "function", function: {name: "generate_image", description: "สร้างภาพด้วย Gemini Image Generation แล้วคืนข้อมูลภาพให้ระบบ ไม่ใช้ URL ภายนอก", parameters: {type: "object", properties: {prompt: {type: "string"}}, required: ["prompt"]}}},
-  {type: "function", function: {name: "generate_image_and_publish_facebook", description: "สร้างภาพ AI และโพสต์ภาพพร้อมข้อความลง Facebook Page ทันทีในขั้นตอนเดียว ใช้เมื่อผู้ใช้สั่งสร้างภาพพร้อมโพสต์ ห้ามสร้าง Draft ห้ามถามยืนยันซ้ำ และไม่ใช้ลิงก์รูปภายนอก", parameters: {type: "object", properties: {image_prompt: {type: "string", description: "คำอธิบายภาพที่ต้องสร้าง"}, body: {type: "string", description: "ข้อความโพสต์"}}, required: ["image_prompt", "body"]}}}
-];
-function socialToolLabel(name) {
-  return name === "social_list_accounts" ? "กำลังตรวจบัญชีโซเชียลที่เชื่อมต่อ" : "กำลังคิดคอนเทนต์และโพสต์จริง";
-}
-async function executeSocialTool(name, args = {}) {
-  if (name === "social_list_accounts") {
-    const accounts = [];
-    if (facebookDirectConfigured()) accounts.push({provider: "facebook", id: state.settings.fbPageId, name: "Facebook Page", ready: true});
-    if (tiktokDirectConfigured()) accounts.push({provider: "tiktok", name: "TikTok", ready: true});
-    if (socialConfigured()) {
-      try { const result = await socialFunction("list"); (result.data || []).forEach(item => accounts.push({provider: item.provider, id: item.id, name: item.display_name, ready: true})); } catch (error) { accounts.push({error: error.message}); }
-    }
-    return {accounts};
-  }
-  if (name !== "social_publish") throw new Error("ไม่รู้จัก social tool: " + name);
-  const platform = String(args.platform || "").toLowerCase();
-  const body = String(args.body || "").trim();
-  const mediaUrl = String(args.media_url || "").trim();
-  if (!body) throw new Error("ต้องมีข้อความคอนเทนต์ก่อนโพสต์");
-  const policy = loadPolicy();
-  if (policy.emergencyStop) throw new Error("ระบบถูกหยุดฉุกเฉินใน Policy Center");
-  if (platform === "facebook") {
-    if (!policy.allowFacebook) throw new Error("Facebook ถูกปิดใน Policy Center — เปิดสิทธิ์เผยแพร่ Facebook ก่อน");
-    if (facebookDirectConfigured()) return await postToFacebookDirect({body, mediaUrl});
-  } else if (platform === "tiktok") {
-    if (!policy.allowTiktok) throw new Error("TikTok ถูกปิดใน Policy Center — เปิดสิทธิ์เผยแพร่ TikTok ก่อน");
-    if (tiktokDirectConfigured()) return await postToTiktokDirect({body, mediaUrl});
-  } else throw new Error("รองรับตอนนี้เฉพาะ facebook และ tiktok");
-  if (!socialConfigured()) throw new Error(`ยังไม่ได้เชื่อมต่อ ${platform} สำหรับการโพสต์จริง`);
-  const list = await socialFunction("list");
-  const target = (list.data || []).find(item => item.provider === platform);
-  if (!target) throw new Error(`ยังไม่มีบัญชี ${platform} ที่เชื่อมต่อ`);
-  return await socialFunction("publish", platform, "", {connection_id: target.id, body, media_url: mediaUrl});
-}
+
 const GITHUB_TOOLS = [
   {type: "function", function: {name: "github_list_repositories", description: "แสดงรายการรีโพสิทอรี GitHub ทั้งหมดที่ Token ปัจจุบันเข้าถึงได้ (ทั้งของผู้ใช้และองค์กร) เรียกใช้เมื่อผู้ใช้พูดถึงรีโพ/โปรเจกต์ที่ยังไม่ได้เลือกไว้ หรือไม่แน่ใจว่ามีรีโพอะไรบ้าง", parameters: {type: "object", properties: {}}}},
   {type: "function", function: {name: "github_select_repository", description: "เลือกรีโพสิทอรีเป้าหมายที่จะอ่าน/แก้ไขต่อจากนี้ ต้องเรียกก่อนใช้เครื่องมือไฟล์อื่นๆ ทุกครั้งที่ต้องการเปลี่ยนไปทำงานกับรีโพอื่น", parameters: {type: "object", properties: {owner: {type: "string", description: "เจ้าของรีโพ เช่น username หรือชื่อองค์กร"}, repo: {type: "string", description: "ชื่อรีโพสิทอรี"}, branch: {type: "string", description: "branch ที่ต้องการทำงานด้วย ถ้าไม่ระบุจะใช้ default branch ของรีโพ"}}, required: ["owner", "repo"]}}},
@@ -2489,7 +2579,13 @@ const GITHUB_TOOLS = [
   {type: "function", function: {name: "run_python", description: "รันโค้ด Python จริงในเบราว์เซอร์ผู้ใช้ผ่าน Pyodide (WebAssembly) ใช้เมื่อผู้ใช้ขอให้เขียน/ทดสอบโค้ด Python, คำนวณด้วยไลบรารีอย่าง math/statistics, ประมวลผลข้อมูล, หรือเมื่อ Python เหมาะกับงานมากกว่า JavaScript ครั้งแรกที่เรียกจะโหลด runtime ลงเครื่อง (ใช้เวลาสักครู่) ครั้งต่อไปเร็วเพราะแคชไว้แล้ว ผลลัพธ์คือ stdout ทั้งหมดที่ print ออกมา ถ้า error ให้อ่านแล้วแก้โค้ดเองแล้วรันใหม่จนผ่านก่อนสรุปคำตอบ ไลบรารีที่ติดตั้งไว้ในตัว pyodide เท่านั้น (numpy จำนวนหนึ่งพร้อมใช้ ไลบรารีอื่นอาจใช้ไม่ได้เพราะไม่มีเน็ตสำหรับ pip install เพิ่มเติมบางตัว)", parameters: {type: "object", properties: {code: {type: "string", description: "โค้ด Python ที่ต้องการรัน"}}, required: ["code"]}}},
   {type: "function", function: {name: "web_search", description: "ค้นหาข้อมูลปัจจุบันบนอินเทอร์เน็ตจริง คืนผลลัพธ์ 5 อันดับแรกพร้อมเนื้อหาย่อของแต่ละหน้า ใช้ทุกครั้งที่คำถามต้องการข้อมูลล่าสุด ข่าว ราคา เหตุการณ์ปัจจุบัน หรือสิ่งที่คุณไม่แน่ใจ/อาจล้าสมัย ห้ามเดาหรือกุคำตอบเรื่องที่เปลี่ยนแปลงได้ทันเวลา ให้ค้นก่อนเสมอแล้วอ้างอิง URL ที่มาในคำตอบ", parameters: {type: "object", properties: {query: {type: "string", description: "คำค้นหา"}}, required: ["query"]}}},
   {type: "function", function: {name: "web_fetch", description: "ดึงเนื้อหาแบบเต็มของหน้าเว็บ URL ที่ระบุ แปลงเป็นข้อความอ่านง่ายให้ ใช้เมื่อผู้ใช้ให้ลิงก์มา หรือต้องการอ่านรายละเอียดเพิ่มจากผลของ web_search รองรับ PDF และหน้าเว็บทั่วไป ไม่ติดปัญหา CORS เพราะดึงผ่านบริการฝั่งเซิร์ฟเวอร์", parameters: {type: "object", properties: {url: {type: "string", description: "URL แบบเต็มของหน้าที่ต้องการอ่าน"}}, required: ["url"]}}},
-  {type: "function", function: {name: "http_request", description: "เรียก HTTP API หรือเว็บไซต์ใดๆ ตรงๆ จากเบราว์เซอร์ผู้ใช้ (GET/POST/PUT/PATCH/DELETE พร้อม headers/body กำหนดเองได้) ใช้เมื่อผู้ใช้ระบุ endpoint/API เฉพาะที่ต้องการเรียก ถ้าเจอ error CORS ให้ลองใช้ web_fetch แทนสำหรับการอ่านข้อมูลอย่างเดียว ห้ามใส่ token หรือรหัสผ่านของบริการอื่นที่ไม่เกี่ยวข้องลงใน headers โดยไม่ได้รับคำสั่งจากผู้ใช้ชัดเจน", parameters: {type: "object", properties: {url: {type: "string"}, method: {type: "string", description: "GET, POST, PUT, PATCH, DELETE (ค่าเริ่มต้น GET)"}, headers: {type: "object", description: "HTTP headers เพิ่มเติมแบบ key-value"}, body: {type: "string", description: "request body แบบข้อความ/JSON string (ถ้ามี)"}}, required: ["url"]}}}
+  {type: "function", function: {name: "http_request", description: "เรียก HTTP API หรือเว็บไซต์ใดๆ ตรงๆ จากเบราว์เซอร์ผู้ใช้ (GET/POST/PUT/PATCH/DELETE พร้อม headers/body กำหนดเองได้) ใช้เมื่อผู้ใช้ระบุ endpoint/API เฉพาะที่ต้องการเรียก ถ้าเจอ error CORS ให้ลองใช้ web_fetch แทนสำหรับการอ่านข้อมูลอย่างเดียว ห้ามใส่ token หรือรหัสผ่านของบริการอื่นที่ไม่เกี่ยวข้องลงใน headers โดยไม่ได้รับคำสั่งจากผู้ใช้ชัดเจน", parameters: {type: "object", properties: {url: {type: "string"}, method: {type: "string", description: "GET, POST, PUT, PATCH, DELETE (ค่าเริ่มต้น GET)"}, headers: {type: "object", description: "HTTP headers เพิ่มเติมแบบ key-value"}, body: {type: "string", description: "request body แบบข้อความ/JSON string (ถ้ามี)"}}, required: ["url"]}}},
+  {type: "function", function: {name: "list_local_files", description: "แสดงรายการไฟล์ทั้งหมดในโฟลเดอร์ที่ผู้ใช้ให้สิทธิ์ไว้บนเครื่อง (ไม่ใช่ GitHub) ใช้ได้เฉพาะเมื่อผู้ใช้กดอนุญาตโฟลเดอร์ไว้แล้วในตั้งค่า > ไฟล์ในเครื่อง ถ้ายังไม่ได้ให้สิทธิ์จะได้ error กลับมา ให้บอกผู้ใช้ตามนั้น", parameters: {type: "object", properties: {}}}},
+  {type: "function", function: {name: "read_local_file", description: "อ่านเนื้อหาไฟล์จากโฟลเดอร์ในเครื่องที่ได้รับสิทธิ์ไว้ ระบุ path แบบสัมพัทธ์กับโฟลเดอร์นั้น", parameters: {type: "object", properties: {path: {type: "string"}}, required: ["path"]}}},
+  {type: "function", function: {name: "write_local_file", description: "เขียน/สร้างไฟล์ในโฟลเดอร์ในเครื่องที่ได้รับสิทธิ์ไว้ทันที (เขียนทับถ้ามีอยู่แล้ว) สร้างโฟลเดอร์ย่อยให้อัตโนมัติถ้า path ระบุไว้", parameters: {type: "object", properties: {path: {type: "string"}, content: {type: "string"}}, required: ["path", "content"]}}},
+  {type: "function", function: {name: "create_file", description: "สร้างไฟล์ให้ผู้ใช้ดาวน์โหลดได้ทันที (เช่น สรุปรายงาน, CSV, JSON, HTML) ใช้เมื่อผู้ใช้ขอ 'ไฟล์' หรือ 'ดาวน์โหลด' ไม่ใช่แค่คำตอบในแชต ระบบจะแสดงปุ่มดาวน์โหลดต่อท้ายข้อความให้อัตโนมัติ รองรับไฟล์ข้อความ/โค้ด/CSV/JSON/HTML เท่านั้น ไม่ใช่ .docx/.pdf จริง", parameters: {type: "object", properties: {filename: {type: "string"}, content: {type: "string"}, mimeType: {type: "string", description: "เช่น text/plain, text/markdown, text/csv, application/json, text/html (ค่าเริ่มต้น text/plain)"}}, required: ["filename", "content"]}}},
+  {type: "function", function: {name: "send_notification", description: "ส่งข้อความแจ้งเตือนออกไปยัง Discord หรือ Telegram ที่ผู้ใช้ตั้งค่า Webhook/Bot ไว้แล้วในหน้าตั้งค่า ใช้เมื่อผู้ใช้สั่งให้แจ้งเตือน/ส่งข้อความไปยังช่องทางเหล่านี้", parameters: {type: "object", properties: {channel: {type: "string", description: "discord หรือ telegram"}, message: {type: "string"}}, required: ["channel", "message"]}}},
+  {type: "function", function: {name: "github_create_branch", description: "สร้าง branch ใหม่ในรีโพที่เลือกไว้ จาก branch ต้นทางที่ระบุ (ค่าเริ่มต้นคือ branch ปัจจุบัน) ใช้ก่อนจะแก้ไขงานใหญ่ที่ไม่อยากกระทบ branch หลักโดยตรง", parameters: {type: "object", properties: {newBranch: {type: "string"}, fromBranch: {type: "string"}}, required: ["newBranch"]}}}
 ];
 
 function githubToolLabel(name) {
@@ -2506,7 +2602,13 @@ function githubToolLabel(name) {
     run_python: "กำลังรันโค้ด Python",
     web_search: "กำลังค้นเว็บ",
     web_fetch: "กำลังดึงเนื้อหาหน้าเว็บ",
-    http_request: "กำลังเรียก HTTP API"
+    http_request: "กำลังเรียก HTTP API",
+    list_local_files: "กำลังดูรายการไฟล์ในเครื่อง",
+    read_local_file: "กำลังอ่านไฟล์ในเครื่อง",
+    write_local_file: "กำลังเขียนไฟล์ในเครื่อง",
+    create_file: "กำลังสร้างไฟล์ให้ดาวน์โหลด",
+    send_notification: "กำลังส่งการแจ้งเตือน",
+    github_create_branch: "กำลังสร้าง branch ใหม่"
   };
   return labels[name] || `กำลังใช้เครื่องมือ ${name}`;
 }
@@ -2582,6 +2684,12 @@ async function executeGithubTool(name, args = {}) {
     case "web_search": return await webSearchJina(args.query || "");
     case "web_fetch": return await webFetchJina(args.url || "");
     case "http_request": return await httpRequestTool(args);
+    case "list_local_files": return {files: await listLocalFilesRecursive()};
+    case "read_local_file": return await readLocalFile(args.path);
+    case "write_local_file": return await writeLocalFile(args.path, args.content);
+    case "create_file": return createDownloadableFile(args);
+    case "send_notification": return await sendNotification(args);
+    case "github_create_branch": return await githubCreateBranch(args.newBranch, args.fromBranch);
     default: throw new Error("ไม่รู้จักเครื่องมือ: " + name);
   }
 }
@@ -2654,6 +2762,96 @@ async function webFetchJina(url) {
 // rules since there is no server proxy here; the model is told to fall back
 // to web_fetch (which goes through Jina's server-side fetch) for read-only
 // cases where a target blocks browser CORS.
+// Local filesystem access — uses the browser's File System Access API so the
+// AI can read/write real files on this device directly, with no upload to
+// any server. Desktop Chrome/Edge only (the API itself does not exist on
+// Safari, Firefox, or mobile browsers); the handle only lives for this tab
+// session since FileSystemHandles aren't stored in localStorage.
+async function requestLocalDirectory() {
+  if (!window.showDirectoryPicker) throw new Error("เบราว์เซอร์นี้ไม่รองรับการเข้าถึงไฟล์ในเครื่อง (ต้องใช้ Chrome หรือ Edge บนเดสก์ท็อป)");
+  state.localDirHandle = await window.showDirectoryPicker();
+  renderLocalFolderStatus();
+}
+function renderLocalFolderStatus() {
+  const el = $("#localFolderStatus");
+  if (!el) return;
+  el.textContent = state.localDirHandle ? `✓ ให้สิทธิ์แล้ว: ${state.localDirHandle.name}` : "ยังไม่ได้ให้สิทธิ์";
+}
+function requireLocalDir() {
+  if (!state.localDirHandle) throw new Error("ยังไม่ได้ให้สิทธิ์เข้าถึงโฟลเดอร์ในเครื่อง ไปที่ตั้งค่า > ไฟล์ในเครื่อง แล้วกดเลือกโฟลเดอร์ก่อน (รองรับเฉพาะ Chrome/Edge บนเดสก์ท็อป)");
+  return state.localDirHandle;
+}
+async function resolveLocalDir(path, {create = false} = {}) {
+  const parts = path.split("/").filter(Boolean);
+  const fileName = parts.pop();
+  let dir = requireLocalDir();
+  for (const part of parts) dir = await dir.getDirectoryHandle(part, {create});
+  return {dir, fileName};
+}
+async function listLocalFilesRecursive(dirHandle = requireLocalDir(), prefix = "") {
+  const entries = [];
+  for await (const [name, handle] of dirHandle.entries()) {
+    const path = prefix ? `${prefix}/${name}` : name;
+    if (handle.kind === "file") entries.push(path);
+    else entries.push(...await listLocalFilesRecursive(handle, path));
+  }
+  return entries;
+}
+async function readLocalFile(path) {
+  const {dir, fileName} = await resolveLocalDir(path);
+  const fileHandle = await dir.getFileHandle(fileName);
+  const file = await fileHandle.getFile();
+  return {path, content: (await file.text()).slice(0, 100000)};
+}
+async function writeLocalFile(path, content) {
+  const {dir, fileName} = await resolveLocalDir(path, {create: true});
+  const fileHandle = await dir.getFileHandle(fileName, {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write(content);
+  await writable.close();
+  return {path, bytesWritten: content.length};
+}
+
+// Downloadable file generation — lets the AI hand the user a real file
+// (text/markdown/CSV/JSON/HTML) built from its answer. Stored as a data URL
+// on the message so the download button keeps working after a reload.
+function createDownloadableFile({filename, content, mimeType}) {
+  if (!filename || content === undefined) throw new Error("กรุณาระบุ filename และ content");
+  const type = mimeType || "text/plain";
+  const dataUrl = `data:${type};base64,${btoa(unescape(encodeURIComponent(content)))}`;
+  return {filename, mimeType: type, size: content.length, dataUrl};
+}
+
+// Notifications — simple senders for channels the user has configured in
+// Settings. All are plain HTTP calls the browser makes directly.
+async function sendDiscordMessage(message) {
+  if (!state.settings.discordWebhookUrl) throw new Error("ยังไม่ได้ตั้งค่า Discord Webhook URL ในหน้าตั้งค่า");
+  const response = await fetch(state.settings.discordWebhookUrl, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({content: message.slice(0, 2000)})
+  });
+  if (!response.ok) throw new Error(`Discord webhook error (HTTP ${response.status})`);
+  return {sent: true, channel: "discord"};
+}
+async function sendTelegramMessage(message) {
+  if (!state.settings.telegramBotToken || !state.settings.telegramChatId) throw new Error("ยังไม่ได้ตั้งค่า Telegram Bot Token / Chat ID ในหน้าตั้งค่า");
+  const response = await fetch(`https://api.telegram.org/bot${state.settings.telegramBotToken}/sendMessage`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({chat_id: state.settings.telegramChatId, text: message.slice(0, 4000)})
+  });
+  const data = await response.json();
+  if (!response.ok || !data.ok) throw new Error(data.description || `HTTP ${response.status}`);
+  return {sent: true, channel: "telegram"};
+}
+async function sendNotification({channel, message}) {
+  if (!message) throw new Error("กรุณาระบุข้อความที่จะแจ้งเตือน");
+  if (channel === "discord") return await sendDiscordMessage(message);
+  if (channel === "telegram") return await sendTelegramMessage(message);
+  throw new Error('channel ต้องเป็น "discord" หรือ "telegram"');
+}
+
 async function httpRequestTool({url, method, headers, body}) {
   if (!url) throw new Error("กรุณาระบุ URL");
   const response = await fetch(url, {
@@ -2666,6 +2864,8 @@ async function httpRequestTool({url, method, headers, body}) {
   try { parsed = JSON.parse(text); } catch {}
   return {status: response.status, ok: response.ok, body: typeof parsed === "string" ? parsed.slice(0, 8000) : parsed};
 }
+
+
 
 const DEFAULT_SKILLS = [
 {name:"ระบบวิเคราะห์และแก้บั๊ก",description:"ค้นหาสาเหตุของข้อผิดพลาดและแก้ไขอย่างเป็นระบบ",instructions:"อ่าน error และ stack trace ให้ครบ ค้นหาไฟล์ที่เกี่ยวข้อง แก้ที่สาเหตุไม่ใช่เฉพาะอาการ แก้ให้น้อยไฟล์ที่สุด รัน test ที่เกี่ยวข้อง และสรุปสาเหตุ ไฟล์ที่แก้ และผลการทดสอบ"},
@@ -2979,6 +3179,9 @@ function renderMessage(message) {
     contentHtml = renderMarkdown(message.content || "");
   }
   const directExecutionHtml = message.directExecution ? renderDirectExecution(message.directExecution) : "";
+  const generatedFilesHtml = (message.generatedFiles || []).map(f =>
+    `<a class="generated-file-chip" href="${f.dataUrl}" download="${escapeHtml(f.filename)}">⬇ ${escapeHtml(f.filename)} <span class="generated-file-size">(${Math.round(f.size / 1024) || 1} KB)</span></a>`
+  ).join("");
 
   const actions = [
     messageActionButton("copy", "คัดลอก", ICONS.copy),
@@ -2995,6 +3198,7 @@ function renderMessage(message) {
         <div class="message-author">${escapeHtml(name)}</div>
         ${renderAttachmentsHtml(message.attachments)}
         <div class="message-content">${contentHtml}</div>
+        ${generatedFilesHtml ? `<div class="generated-files">${generatedFilesHtml}</div>` : ""}
         ${directExecutionHtml}
         <div class="message-actions ${message.status === "error" ? "always" : ""}">${actions}</div>
       </div>
@@ -3215,8 +3419,14 @@ function fillSettingsForm() {
   $("#socialSupabaseAnonKey").value = s.supabaseAnonKey || "";
   $("#fbPageId").value = s.fbPageId || "";
   $("#fbPageToken").value = s.fbPageToken || "";
+  $("#fbAppId").value = s.fbAppId || "";
+  renderConnectorStatuses();
   $("#tiktokAccessToken").value = s.tiktokAccessToken || "";
   $("#jinaApiKey").value = s.jinaApiKey || "";
+  $("#discordWebhookUrl").value = s.discordWebhookUrl || "";
+  $("#telegramBotToken").value = s.telegramBotToken || "";
+  $("#telegramChatId").value = s.telegramChatId || "";
+  renderLocalFolderStatus();
 }
 
 function readSettingsForm() {
@@ -3260,8 +3470,13 @@ function readSettingsForm() {
     supabaseAnonKey: $("#socialSupabaseAnonKey").value.trim(),
     fbPageId: $("#fbPageId").value.trim(),
     fbPageToken: $("#fbPageToken").value.trim(),
+    fbAppId: $("#fbAppId").value.trim(),
+    igBusinessId: state.settings.igBusinessId || "",
     tiktokAccessToken: $("#tiktokAccessToken").value.trim(),
-    jinaApiKey: $("#jinaApiKey").value.trim()
+    jinaApiKey: $("#jinaApiKey").value.trim(),
+    discordWebhookUrl: $("#discordWebhookUrl").value.trim(),
+    telegramBotToken: $("#telegramBotToken").value.trim(),
+    telegramChatId: $("#telegramChatId").value.trim()
   };
 }
 
@@ -3349,6 +3564,10 @@ function buildSystemPrompt(latestUserText = "") {
 - web_search: ค้นข้อมูลปัจจุบันจากอินเทอร์เน็ตจริง ใช้ทุกครั้งที่คำถามเกี่ยวกับข่าว ราคา เหตุการณ์ปัจจุบัน หรือสิ่งที่อาจเปลี่ยนแปลงไปแล้วตั้งแต่ข้อมูลที่คุณมี ห้ามเดาหรือกุคำตอบเรื่องเหล่านี้เด็ดขาด ให้ค้นก่อนเสมอแล้วอ้างอิง URL ที่มา
 - web_fetch: ดึงเนื้อหาเต็มของ URL ที่ผู้ใช้ให้มาหรือจากผลของ web_search มาอ่านจริงก่อนสรุป ไม่ใช่เดาจากชื่อลิงก์
 - http_request: เรียก API หรือเว็บไซต์เฉพาะที่ผู้ใช้ระบุ ถ้าเจอ CORS error ให้ลอง web_fetch แทนสำหรับอ่านข้อมูลอย่างเดียว
+- list_local_files / read_local_file / write_local_file: อ่าน-เขียนไฟล์จริงบนเครื่องผู้ใช้โดยตรง (คนละส่วนกับ GitHub) ใช้ได้เฉพาะตอนที่ผู้ใช้กดอนุญาตโฟลเดอร์ไว้แล้วเท่านั้น ถ้าเรียกแล้ว error ว่ายังไม่ได้รับสิทธิ์ ให้บอกผู้ใช้ให้ไปกดอนุญาตที่ตั้งค่าก่อน
+- create_file: สร้างไฟล์ให้ผู้ใช้ดาวน์โหลดทันที (ปุ่มดาวน์โหลดจะโผล่ในแชตอัตโนมัติ) ใช้เมื่อผู้ใช้ขอ "ไฟล์"/"ดาวน์โหลด" ไม่ใช่แค่คำตอบข้อความ
+- send_notification: ส่งข้อความไปยัง Discord/Telegram ที่ผู้ใช้ตั้งค่าไว้ เมื่อสั่งให้แจ้งเตือน
+- github_create_branch: สร้าง branch ใหม่ก่อนแก้ไขงานใหญ่ที่ไม่อยากกระทบ branch หลัก
 
 หลักการสำคัญที่สุด: ห้ามเดาข้อเท็จจริงที่ตรวจสอบได้ ถ้าไม่แน่ใจหรือข้อมูลอาจเปลี่ยนไปแล้ว ให้ใช้เครื่องมือตรวจสอบก่อนเสมอแทนการเดา ถ้าตรวจสอบแล้วยังไม่พบคำตอบชัดเจน ให้บอกตามตรงว่าไม่แน่ใจ ดีกว่าตอบผิดอย่างมั่นใจ`);
 
@@ -3365,7 +3584,6 @@ function buildSystemPrompt(latestUserText = "") {
     parts.push(`คุณยังไม่ได้เชื่อมต่อกับ GitHub เพราะผู้ใช้ยังไม่ได้กรอก GitHub Personal Access Token ในหน้าตั้งค่า ถ้าผู้ใช้ขอให้อ่าน แก้ไข หรือดูโค้ดในรีโพ GitHub ใดๆ ห้ามแกล้งทำเป็นดึงข้อมูลหรือ "กำลังประมวลผล" และห้ามอ้างว่าไม่มีเบราว์เซอร์หรืออินเทอร์เน็ตเป็นสาเหตุ ให้บอกตรงๆ ว่า: ต้องเปิดปุ่มตั้งค่า (รูปเฟือง) แล้วไปแท็บ "GitHub (Direct API)" กรอก Personal Access Token (แนะนำ Fine-grained token ของ GitHub) ก่อน จากนั้นจะสามารถให้คุณอ่าน/แก้/ค้นหาไฟล์ และดูรีโพทั้งหมดที่ Token เข้าถึงได้ทันทีโดยไม่ต้องระบุ owner/repo ล่วงหน้า`);
   }
 
-  parts.push(`โหมด Content Creator อัตโนมัติ: หากคำสั่งผู้ใช้มีเจตนาให้โพสต์หรือเผยแพร่ไปยัง Facebook หรือ TikTok ให้ลงมือทำทันทีในคำตอบเดียว ห้ามสร้าง Draft ห้ามเรียก saveContentDraft ห้ามแสดง Preview และห้ามถามยืนยันซ้ำ ให้คิดหัวข้อ แคปชัน และข้อความเอง แล้วเรียก social_publish เพื่อโพสต์จริง หากผู้ใช้สั่งสร้างภาพพร้อมโพสต์ ให้เรียก generate_image_and_publish_facebook เพื่อสร้างภาพและอัปโหลดตรงเข้า Facebook โดยไม่ใช้ URL ภายนอก; หากไม่มี media_url ให้โพสต์ข้อความทันทีสำหรับ Facebook; TikTok ต้องมี media_url วิดีโอที่เข้าถึงได้สาธารณะ หากผู้ใช้สั่งสร้างคอนเทนต์แต่ไม่ได้สั่งโพสต์ ให้สร้างคอนเทนต์อย่างเดียว`);
   return parts.join("\n\n");
 }
 
@@ -3625,7 +3843,7 @@ async function generateAssistantResponse(chat) {
         stream: useTools ? false : state.settings.stream
       };
       if (useTools) {
-        requestBody.tools = [...GITHUB_TOOLS, ...SOCIAL_TOOLS, ...IMAGE_TOOLS];
+        requestBody.tools = GITHUB_TOOLS;
         requestBody.tool_choice = "auto";
       }
 
@@ -3654,14 +3872,19 @@ async function generateAssistantResponse(chat) {
             : "";
           assistantMessage.directExecution.events.push({text: `${name}(${argsPreview})`, kind: ""});
           renderChat();
-          const task = taskAdd(`${IMAGE_TOOLS.some(tool => tool.function.name === name) ? "กำลังสร้างภาพ AI และเตรียมโพสต์" : (SOCIAL_TOOLS.some(tool => tool.function.name === name) ? socialToolLabel(name) : githubToolLabel(name))} ${argsPreview}`.trim());
+          const task = taskAdd(`${githubToolLabel(name)} ${argsPreview}`.trim());
           taskUpdate(task, "running");
           let resultPayload;
           try {
-            resultPayload = IMAGE_TOOLS.some(tool => tool.function.name === name) ? await executeImagePublishTool(name, args) : (SOCIAL_TOOLS.some(tool => tool.function.name === name) ? await executeSocialTool(name, args) : await executeGithubTool(name, args));
+            resultPayload = await executeGithubTool(name, args);
+            if (name === "create_file" && resultPayload?.dataUrl) {
+              assistantMessage.generatedFiles = assistantMessage.generatedFiles || [];
+              assistantMessage.generatedFiles.push(resultPayload);
+            }
+            const modelFacingPayload = name === "create_file" ? {...resultPayload, dataUrl: undefined} : resultPayload;
             const summary = name === "github_write_file" && resultPayload.diff
               ? resultPayload.diff
-              : JSON.stringify(resultPayload).slice(0, 140);
+              : JSON.stringify(modelFacingPayload).slice(0, 140);
             assistantMessage.directExecution.events.push({text: `${githubToolLabel(name)} — ${summary}`, kind: "ok"});
             taskUpdate(task, "done");
           } catch (toolError) {
@@ -3670,7 +3893,8 @@ async function generateAssistantResponse(chat) {
             taskUpdate(task, "error");
           }
           renderChat();
-          apiMessages.push({role: "tool", tool_call_id: call.id, content: JSON.stringify(resultPayload).slice(0, 12000)});
+          const modelFacingResult = name === "create_file" && resultPayload?.dataUrl ? {...resultPayload, dataUrl: undefined} : resultPayload;
+          apiMessages.push({role: "tool", tool_call_id: call.id, content: JSON.stringify(modelFacingResult).slice(0, 12000)});
         }
         chat.updatedAt = Date.now();
         await dbSaveChat(chat).catch(handleStorageError);
@@ -4075,6 +4299,8 @@ async function exportData() {
       fbPageToken: "",
       tiktokAccessToken: "",
       jinaApiKey: "",
+      discordWebhookUrl: "",
+      telegramBotToken: "",
       supabaseAnonKey: "",
       providers: (state.settings.providers || []).map(p => ({...p, apiKey: ""}))
     },
@@ -4235,6 +4461,42 @@ function bindEvents() {
 
   $("#taskMonitor").addEventListener("click", () => $("#taskMonitorQueue").classList.toggle("hidden"));
 
+  $("#connectFacebookSdkButton").addEventListener("click", async () => {
+    state.settings.fbAppId = $("#fbAppId").value.trim();
+    try {
+      const pages = await connectFacebookSdk();
+      renderFbPagePicker(pages);
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  });
+  $("#disconnectFacebookButton").addEventListener("click", () => {
+    state.settings.fbPageId = "";
+    state.settings.fbPageToken = "";
+    state.settings.igBusinessId = "";
+    persistSettings();
+    renderConnectorStatuses();
+    toast("ตัดการเชื่อมต่อ Facebook แล้ว");
+  });
+  $("#detectInstagramButton").addEventListener("click", async () => {
+    try {
+      const account = await detectInstagramAccount();
+      renderConnectorStatuses();
+      toast(`พบบัญชี Instagram: @${account.username}`);
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  });
+  $("#gotoGithubSettingsButton").addEventListener("click", () => switchSettingsPage("connection"));
+  $("#gotoTiktokSettingsButton").addEventListener("click", () => switchSettingsPage("social"));
+  $("#grantLocalFolderButton").addEventListener("click", async () => {
+    try {
+      await requestLocalDirectory();
+      toast("ให้สิทธิ์โฟลเดอร์สำเร็จ");
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  });
   $("#downloadLocalAiButton").addEventListener("click", async () => {
     const status = $("#localAiStatus");
     const track = $("#localAiProgressTrack");
