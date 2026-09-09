@@ -1,0 +1,18 @@
+name: Auto-Publish Social Content
+on:
+  schedule:
+    - cron: '0 0,5,11 * * *' # เวลา 07:00, 12:00, 18:00 ICT (UTC+7)
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      - name: Trigger Auto Publish
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/social-oauth" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"action": "auto-publish"}'
