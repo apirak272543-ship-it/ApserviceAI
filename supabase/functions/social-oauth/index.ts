@@ -95,51 +95,12 @@ async function callback(req: Request, provider: string) {
   } catch (e) { return redirect(`${appUrl}?social_oauth=error&message=${encodeURIComponent(e instanceof Error ? e.message : "เชื่อมต่อไม่สำเร็จ")}`); }
 }
 
-async function tokenConnect(provider: string, userId: string, payload: any) {
-  const token = String(payload?.access_token || "").trim();
-  if (!token) throw new Error("Access token is required");
-  if (provider === "facebook") {
-    const response = await fetch(`${META_GRAPH_URL}/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
-    const account = await response.json();
-    if (!response.ok || account.error || !account.id) throw new Error(account.error?.message || "Facebook token ใช้งานไม่ได้");
-    const { error } = await admin.from("social_connections").upsert({ user_id: userId, provider, provider_account_id: account.id, display_name: account.name || "Facebook Page", access_token_encrypted: await encrypt(token), refresh_token_encrypted: null, token_expires_at: null, scopes: scopes(provider), metadata: { source: "direct_token" } }, { onConflict: "user_id,provider,provider_account_id" });
-    if (error) throw error;
-    return { provider, connected: true, account: { id: account.id, name: account.name || "Facebook Page" } };
-  }
-  if (provider === "tiktok") {
-    const response = await fetch(`${TIKTOK_API_URL}/user/info/?fields=open_id,display_name`, { headers: { Authorization: `Bearer ${token}` } });
-    const result = await response.json();
-    const account = result.data?.user || {};
-    if (!response.ok || result.error?.code !== "ok" || !account.open_id) throw new Error(result.error?.message || "TikTok token ใช้งานไม่ได้");
-    const { error } = await admin.from("social_connections").upsert({ user_id: userId, provider, provider_account_id: account.open_id, display_name: account.display_name || "TikTok account", access_token_encrypted: await encrypt(token), refresh_token_encrypted: null, token_expires_at: null, scopes: scopes(provider), metadata: { source: "direct_token" } }, { onConflict: "user_id,provider,provider_account_id" });
-    if (error) throw error;
-    return { provider, connected: true, account: { id: account.open_id, name: account.display_name || "TikTok account" } };
-  }
-  throw new Error("Unsupported provider");
-}
-
-async function serviceRoleUserId(req: Request, action: string, body: any) {
-  const auth = req.headers.get("authorization") || "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  if (!serviceKey || auth !== `Bearer ${serviceKey}`) return null;
-  if (!["agent_list", "agent_publish"].includes(action)) return null;
-  const userId = String(body?.user_id || "");
-  if (!/^[0-9a-f-]{36}$/i.test(userId)) throw new Error("Invalid user_id");
-  return userId;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url); const action = url.searchParams.get("action") || "list"; const provider = url.searchParams.get("provider") || "";
   if (action === "callback") return callback(req, provider);
+  const user = await userFromRequest(req); if (!user) return json({ error: "Unauthorized" }, 401);
   try {
-    const body = ["agent_list", "agent_publish", "token_connect"].includes(action) ? await req.json() : null;
-    const agentUserId = await serviceRoleUserId(req, action, body);
-    const user = agentUserId ? { id: agentUserId } : await userFromRequest(req);
-    if (!user) return json({ error: "Unauthorized" }, 401);
-    if (action === "token_connect") return json(await tokenConnect(provider, user.id, body));
-    if (action === "agent_list") { const { data, error } = await admin.from("social_connections").select("id,provider,provider_account_id,display_name,token_expires_at,scopes,metadata,created_at,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }); if (error) throw error; return json({ data }); }
-    if (action === "agent_publish") return json(await publish(provider, user.id, body));
     if (action === "start") return json(await start(provider, user.id));
     if (action === "publish") return json(await publish(provider, user.id, await req.json()));
     if (action === "list") { const { data, error } = await admin.from("social_connections").select("id,provider,provider_account_id,display_name,token_expires_at,scopes,metadata,created_at,updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }); if (error) throw error; return json({ data }); }

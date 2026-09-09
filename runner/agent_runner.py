@@ -12,7 +12,6 @@ from openai import OpenAI
 
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-SOCIAL_FUNCTION_URL = f"{SUPABASE_URL}/functions/v1/social-oauth"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 WORKSPACE = Path(os.environ.get("WORKSPACE", ".")).resolve()
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "3"))
@@ -167,26 +166,6 @@ def stop_codespace_if_idle():
     response.raise_for_status()
 
 
-def social_request(action: str, provider: str = "", payload: dict | None = None):
-    url = f"{SOCIAL_FUNCTION_URL}?action={action}"
-    if provider:
-        url += f"&provider={provider}"
-    headers = {"apikey": SUPABASE_SERVICE_ROLE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"}
-    response = requests.request("POST" if payload is not None else "GET", url, headers=headers, json=payload, timeout=60)
-    data = response.json()
-    if not response.ok or data.get("error"):
-        raise RuntimeError(data.get("error") or f"Social API HTTP {response.status_code}")
-    return data
-
-
-def social_list_accounts(user_id: str):
-    return social_request("agent_list", payload={"user_id": user_id})
-
-
-def facebook_publish_post(user_id: str, connection_id: str, body: str):
-    return social_request("agent_publish", provider="facebook", payload={"user_id": user_id, "connection_id": connection_id, "body": body})
-
-
 def safe_path(value: str) -> Path:
     path = (WORKSPACE / value).resolve()
     if path != WORKSPACE and WORKSPACE not in path.parents:
@@ -239,11 +218,6 @@ def git_log(limit: int = 20):
     return git_command(["log", f"-{max(1, min(int(limit), 100))}", "--oneline", "--decorate"])
 
 
-SOCIAL_TOOLS = [
-    {"type": "function", "function": {"name": "social_list_accounts", "description": "List connected Facebook Pages/TikTok accounts for the current user without exposing tokens.", "parameters": {"type": "object", "properties": {}}}},
-    {"type": "function", "function": {"name": "facebook_publish_post", "description": "Publish a text post to a connected Facebook Page. Use only when the user explicitly asks to publish. Never ask for or expose an access token.", "parameters": {"type": "object", "properties": {"connection_id": {"type": "string"}, "body": {"type": "string"}}, "required": ["connection_id", "body"]}}},
-]
-
 TOOLS = [
     {"type": "function", "function": {"name": "list_repositories", "description": "List GitHub repositories the configured token can access. Use this when the task does not name a repository.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "inspect_all_repositories", "description": "Read-only: inspect the structure and key manifest files of every GitHub repository accessible to the configured token. Use this when the user asks for all repositories or a portfolio-wide summary. Do not edit or commit.", "parameters": {"type": "object", "properties": {}}}},
@@ -261,9 +235,7 @@ TOOLS = [
 ]
 
 
-def call_tool(name: str, args: dict, user_id: str = ""):
-    if name == "social_list_accounts": return social_list_accounts(user_id)
-    if name == "facebook_publish_post": return facebook_publish_post(user_id, args["connection_id"], args["body"])
+def call_tool(name: str, args: dict):
     if name == "list_repositories": return list_repositories()
     if name == "inspect_all_repositories": return inspect_all_repositories()
     if name == "select_repository": return select_repository(args["owner"], args["repo"], args.get("branch", "main"), args.get("task_id", "workspace"))
@@ -290,7 +262,7 @@ def run_task(task: dict):
     checkpoint(task_id, task["user_id"], "task_started", "Runner accepted queued task")
     skill_rows = db("GET", "/rest/v1/skills", params=f"?user_id=eq.{task['user_id']}&enabled=eq.true&order=created_at.asc")
     skill_text = "\n\n".join(f"SKILL: {row['name']}\n{row.get('description','')}\n{row['instructions']}" for row in (skill_rows or []))
-    system_prompt = "You are an autonomous multi-repository coding agent. You also have secure social publishing tools. When the user explicitly asks to publish to Facebook, first call social_list_accounts, select the requested Page, then call facebook_publish_post. Never request, print, or reveal access tokens. If the user did not explicitly ask to publish, do not publish. If the user asks about all repositories, call inspect_all_repositories exactly once and produce a complete read-only portfolio summary for every returned repository; do not select, edit, or commit any repository. If the task names one repository, select it first. Otherwise list accessible repositories, infer the best match, and select exactly one. Never edit the central runner repository unless it is explicitly selected. Inspect before editing, make requested changes, run relevant tests, and report the selected repository, changes, tests, and commit. Use tools when needed."
+    system_prompt = "You are an autonomous multi-repository coding agent. If the user asks about all repositories, call inspect_all_repositories exactly once and produce a complete read-only portfolio summary for every returned repository; do not select, edit, or commit any repository. If the task names one repository, select it first. Otherwise list accessible repositories, infer the best match, and select exactly one. Never edit the central runner repository unless it is explicitly selected. Inspect before editing, make requested changes, run relevant tests, and report the selected repository, changes, tests, and commit. Use tools when needed."
     if skill_text:
         system_prompt += "\n\nFollow these user skills when relevant:\n" + skill_text
     target_hint = ""
@@ -332,7 +304,7 @@ def run_task(task: dict):
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": task["prompt"] + target_hint}]
     try:
         for _ in range(24):
-            response = llm_chat(messages, tools=TOOLS + SOCIAL_TOOLS, tool_choice="auto", temperature=0.1)
+            response = llm_chat(messages, tools=TOOLS, tool_choice="auto", temperature=0.1)
             message = response.choices[0].message
             assistant_message = {"role": "assistant"}
             if message.content is not None:
@@ -354,7 +326,7 @@ def run_task(task: dict):
                 started = time.time()
                 print(f"Calling tool: {call.function.name}", flush=True)
                 try:
-                    output = call_tool(call.function.name, args, task["user_id"])
+                    output = call_tool(call.function.name, args)
                     status, error = "completed", None
                 except Exception as exc:
                     output, status, error = {"error": str(exc)}, "failed", str(exc)

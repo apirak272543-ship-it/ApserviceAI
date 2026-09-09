@@ -341,35 +341,6 @@ body.sidebar-collapsed #sidebar {
   display: flex;
   flex-direction: column;
 }
-/* v2 productivity layer */
-#taskMonitor {
-  width: min(790px, calc(100% - 36px));
-  margin: 8px auto 0;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
-  box-shadow: 0 6px 20px rgba(0,0,0,.05);
-  z-index: 5;
-}
-.task-monitor-head { display:flex; align-items:center; gap:8px; }
-.task-monitor-title { font-size:12px; font-weight:800; }
-.task-monitor-state { margin-left:auto; color:var(--muted); font-size:11px; }
-.task-monitor-list { display:grid; gap:5px; margin-top:7px; }
-.task-item { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
-.task-item.active { color:var(--text); font-weight:650; }
-.task-dot { width:8px; height:8px; border-radius:50%; background:var(--border); flex:0 0 8px; }
-.task-item.done .task-dot { background:var(--accent); }
-.task-item.active .task-dot { background:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
-.task-priority { margin-left:auto; font-size:10px; padding:2px 6px; border-radius:999px; background:var(--surface-3); }
-.memory-note { margin:0 0 10px; padding:8px 10px; border-radius:9px; background:var(--accent-soft); color:var(--muted); font-size:11px; }
-.provider-models, .provider-tokens { width:100%; min-height:68px; resize:vertical; }
-.feature-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
-.feature-card { padding:11px; border:1px solid var(--border); border-radius:11px; background:var(--surface-2); }
-.feature-card strong { display:block; font-size:13px; margin-bottom:3px; }
-.feature-card span { color:var(--muted); font-size:11px; line-height:1.5; }
-@media (max-width:760px){ #taskMonitor{width:calc(100% - 20px); margin-top:5px;} .feature-grid{grid-template-columns:1fr;} }
-
 #messageScroll {
   min-height: 0;
   flex: 1;
@@ -1004,15 +975,6 @@ html[data-theme="dark"] #sendButton {
 .settings-tab.active {
   background: var(--surface-3);
 }
-.settings-section-card { margin: 0 0 18px; padding: 15px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); }
-.settings-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.settings-section-heading strong { font-size: 14px; }
-.settings-badge { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
-.provider-quick-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
-.provider-quick-grid .secondary-button { min-height: 36px; font-size: 12px; }
-.provider-endpoint[readonly] { color: var(--muted); background: var(--surface-3); cursor: not-allowed; }
-.settings-page[data-page="social"] h3:not(:first-child) { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
-@media (max-width: 700px) { .settings-section-heading { display: block; } .settings-badge { display: inline-block; margin-top: 8px; } }
 .settings-page {
   display: none;
   padding: 21px;
@@ -1333,6 +1295,16 @@ html[data-theme="dark"] .alert {
 .pin-key.pin-action { font-size: 14px; }
 
 .progress-track { height: 8px; margin: 8px 0 14px; overflow: hidden; border-radius: 99px; background: var(--border); }.progress-fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width .3s ease; }
+#taskMonitor{position:fixed;right:18px;bottom:92px;max-width:280px;background:var(--surface,#1f1f22);color:var(--text,#fff);border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:12.5px;z-index:40;cursor:pointer;overflow:hidden}
+#taskMonitor.hidden{display:none}
+#taskMonitorCurrent{padding:9px 12px;display:flex;align-items:center;gap:8px}
+#taskMonitorCurrent .dot{width:7px;height:7px;border-radius:50%;background:#10a37f;flex:none;animation:taskPulse 1.2s infinite}
+@keyframes taskPulse{0%,100%{opacity:1}50%{opacity:.35}}
+#taskMonitorQueue{border-top:1px solid rgba(255,255,255,.1);max-height:180px;overflow:auto;padding:6px 12px}
+#taskMonitorQueue.hidden{display:none}
+#taskMonitorQueue div{padding:3px 0;opacity:.85}
+#taskMonitorQueue div.done{opacity:.45;text-decoration:line-through}
+#taskMonitorQueue div.err{color:#f87171}
 </style>
 </head>
 <body>
@@ -1408,10 +1380,6 @@ html[data-theme="dark"] .alert {
     </header>
 
     <section id="content">
-      <div id="taskMonitor" class="hidden" aria-live="polite">
-        <div class="task-monitor-head"><span class="task-monitor-title">กำลังทำงาน</span><span class="task-monitor-state" id="taskMonitorState">พร้อม</span></div>
-        <div class="task-monitor-list" id="taskMonitorList"></div>
-      </div>
       <div id="messageScroll">
         <div id="welcome">
           <div class="empty-logo" id="welcomeMark">N</div>
@@ -1441,6 +1409,11 @@ html[data-theme="dark"] .alert {
       <button id="scrollBottom" class="hidden" title="เลื่อนไปล่างสุด">
         <svg class="icon" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
       </button>
+
+      <div id="taskMonitor" class="hidden" title="คลิกเพื่อดูคิวงานทั้งหมด">
+        <div id="taskMonitorCurrent"></div>
+        <div id="taskMonitorQueue" class="hidden"></div>
+      </div>
 
       <div id="composerArea">
         <div id="attachmentPreview"></div>
@@ -1497,7 +1470,6 @@ html[data-theme="dark"] .alert {
       <button class="settings-tab" data-page="connection">การเชื่อมต่อ AI</button>
       <button class="settings-tab" data-page="social">โซเชียลและคอนเทนต์</button>
       <button class="settings-tab" data-page="behavior">พฤติกรรมโมเดล</button>
-      <button class="settings-tab" data-page="features">ฟีเจอร์</button>
       <button class="settings-tab" data-page="data">ข้อมูล</button>
     </nav>
 
@@ -1540,23 +1512,37 @@ html[data-theme="dark"] .alert {
       <div class="alert">
         เว็บแบบ Static ไม่สามารถซ่อน API Key ได้ หากเผยแพร่บน GitHub Pages ควรใช้ API Proxy ฝั่งเซิร์ฟเวอร์ และไม่ควรบันทึก Secret Key ลงในไฟล์นี้ — เพิ่มผู้ให้บริการได้หลายอันดับ เรียงจากบนลงล่าง อันดับ 1 (บนสุด) จะถูกใช้ก่อนเสมอ ถ้าอันดับ 1 เรียกไม่สำเร็จ (error/timeout) ระบบจะข้ามไปลองอันดับถัดไปให้อัตโนมัติทันที ไล่ไปเรื่อยๆ จนกว่าจะสำเร็จหรือหมดรายการ เลือกค่ายแล้วใส่แค่ API Key/Token ของตัวเองก็พอ ไม่ต้องจำ URL
       </div>
-      <div class="settings-section-card provider-quick-setup">
-        <div class="settings-section-heading"><div><strong>เพิ่มช่องทาง AI แบบเร็ว</strong><div class="form-help">เลือกค่าย ระบบใส่ URL และรุ่นเริ่มต้นให้เอง — คุณกรอกเฉพาะ API Token</div></div><span class="settings-badge">Token เท่านั้น</span></div>
-        <div class="provider-quick-grid">
-          <button type="button" class="secondary-button provider-quick-add" data-provider="google">Google Gemini</button>
-          <button type="button" class="secondary-button provider-quick-add" data-provider="openai">OpenAI</button>
-          <button type="button" class="secondary-button provider-quick-add" data-provider="openrouter">OpenRouter</button>
-          <button type="button" class="secondary-button provider-quick-add" data-provider="groq">Groq</button>
-          <button type="button" class="secondary-button provider-quick-add" data-provider="deepseek">DeepSeek</button>
-          <button type="button" class="secondary-button provider-quick-add" data-provider="anthropicOR">Claude / OpenRouter</button>
-          <button type="button" class="secondary-button provider-quick-add" data-provider="mistral">Mistral</button>
-          <button type="button" class="secondary-button provider-quick-add" data-provider="custom">กำหนดเอง</button>
-        </div>
-      </div>
       <div id="providerRows" class="provider-rows"></div>
       <div class="button-row">
         <button class="secondary-button" id="addProviderButton">+ เพิ่มผู้ให้บริการ</button>
       </div>
+
+      <h3 style="margin-top:18px;">AI สำรองในเครื่อง (Local AI — ไม่ผ่าน API เลย)</h3>
+      <div class="alert">โหลดโมเดล AI ขนาดเล็กมารันในเบราว์เซอร์ผู้ใช้เองล้วนๆ (ผ่าน WebGPU) ใช้เมื่อผู้ให้บริการ API ทุกอันดับด้านบนใช้ไม่ได้แล้ว (token/quota หมดหมดทุกเจ้า) จะได้ตอบต่อได้แม้ไม่มี API เลย — ความฉลาดจะน้อยกว่าโมเดลใหญ่มาก เหมาะกับงานสนทนาเบาๆ ไม่ใช่งานซับซ้อน ต้องเบราว์เซอร์รองรับ WebGPU (Chrome/Edge รุ่นใหม่) และดาวน์โหลดโมเดลครั้งแรกประมาณ 600MB–900MB (แคชไว้ในเครื่อง โหลดครั้งเดียว)</div>
+      <div class="switch-row">
+        <div class="switch-info">
+          <div class="switch-title">เปิดใช้ AI สำรองในเครื่อง</div>
+          <div class="switch-note">ทำงานอัตโนมัติเฉพาะตอน API ทุกเจ้าล่มพร้อมกัน</div>
+        </div>
+        <label class="switch">
+          <input id="settingLocalAiEnabled" type="checkbox">
+          <span class="switch-track"></span>
+        </label>
+      </div>
+      <div class="form-row">
+        <label for="settingLocalAiModel">โมเดลในเครื่อง</label>
+        <select class="select-input" id="settingLocalAiModel">
+          <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B (เล็กสุด เร็วสุด ~700MB)</option>
+          <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B (ฉลาดกว่า ~1.9GB)</option>
+          <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi 3.5 mini (~2.3GB)</option>
+          <option value="gemma-2-2b-it-q4f16_1-MLC">Gemma 2 2B (~1.5GB)</option>
+        </select>
+      </div>
+      <div class="button-row">
+        <button class="secondary-button" id="downloadLocalAiButton">ดาวน์โหลด/เตรียมโมเดลไว้ล่วงหน้า</button>
+        <span class="form-help" id="localAiStatus"></span>
+      </div>
+
       <div class="form-row" style="margin-top:14px;">
         <label for="settingHeaders">Custom headers แบบ JSON (ใช้กับทุกผู้ให้บริการ)</label>
         <textarea class="textarea-input" id="settingHeaders" spellcheck="false" placeholder='{"X-App-Key":"value"}'></textarea>
@@ -1587,15 +1573,13 @@ html[data-theme="dark"] .alert {
           <input class="text-input provider-endpoint" placeholder="https://api.example.com/v1/chat/completions">
         </div>
         <div class="form-row">
-          <label>โมเดลที่อนุญาต / ลำดับสำรอง</label>
-          <textarea class="textarea-input provider-models" spellcheck="false" placeholder="ใส่ 1 โมเดลต่อบรรทัด — ระบบจะลองจากบนลงล่าง"></textarea>
+          <label>ชื่อโมเดล (ใส่ได้หลายตัว คั่นด้วย , — สลับอัตโนมัติเมื่อโทเค็นเต็ม)</label>
+          <input class="text-input provider-model" list="">
           <datalist class="provider-model-list"></datalist>
-          <div class="form-help">ใส่ได้หลายโมเดลต่อผู้ให้บริการ ไม่ต้องกรอกครบ ระบบใช้รายการที่คุณกำหนดเป็นหลัก</div>
         </div>
         <div class="form-row">
-          <label>API Key / Token สำรอง (ไม่จำกัดจำนวน)</label>
-          <textarea class="textarea-input provider-tokens" spellcheck="false" placeholder="ใส่ Token 1 รายการต่อบรรทัด"></textarea>
-          <div class="form-help">เก็บในเครื่องเท่านั้น และระบบจะสลับ Token เมื่อพบ 401/403/429/5xx</div>
+          <label>API Key / Token (ใส่ได้หลายตัว คั่นด้วย , เป็นโทเค็นสำรองไม่จำกัด)</label>
+          <input class="text-input provider-key" type="password" autocomplete="off" placeholder="key1, key2, key3...">
         </div>
         <div class="button-row">
           <button type="button" class="secondary-button provider-test">ทดสอบการเชื่อมต่อ</button>
@@ -1606,19 +1590,12 @@ html[data-theme="dark"] .alert {
 
     <div class="settings-page" data-page="social">
       <h3>Social Connections</h3>
-      <div class="alert">เชื่อมต่อเฉพาะบัญชีที่คุณเป็นเจ้าของหรือมีสิทธิ์จัดการเท่านั้น OAuth เป็นวิธีแนะนำสำหรับการใช้งานจริง ส่วน Token ด้านล่างจะถูกส่งเข้า Supabase เพื่อเข้ารหัสและให้ Agent ใช้ได้ — ระบบจะไม่ส่ง Token เข้า prompt และไม่แสดง Token กลับมา</div>
-      <div class="feature-grid">
-        <div class="feature-card"><strong>Facebook Graph API</strong><span id="facebookApiUrl">https://graph.facebook.com/v26.0</span></div>
-        <div class="feature-card"><strong>TikTok Open API</strong><span id="tiktokApiUrl">https://open.tiktokapis.com/v2</span></div>
-      </div>
-      <div class="form-row"><label for="socialFacebookToken">Facebook API Token (ทางเลือก)</label><input class="text-input" id="socialFacebookToken" type="password" autocomplete="off" placeholder="ใส่ Page/User Access Token"></div>
-      <div class="form-row"><label for="socialTiktokToken">TikTok API Token (ทางเลือก)</label><input class="text-input" id="socialTiktokToken" type="password" autocomplete="off" placeholder="ใส่ Access Token"></div>
-      <div class="form-row"><label>ช่องทางอื่น (เตรียม URL ไว้ให้แล้ว)</label><div class="feature-grid"><div class="feature-card"><strong>Instagram Graph</strong><span>https://graph.facebook.com/v26.0</span></div><div class="feature-card"><strong>LinkedIn</strong><span>https://api.linkedin.com/v2</span></div><div class="feature-card"><strong>YouTube Data API</strong><span>https://www.googleapis.com/youtube/v3</span></div><div class="feature-card"><strong>X API</strong><span>https://api.x.com/2</span></div></div><div class="form-help">เพิ่ม Token ได้ภายหลังโดยไม่ต้องแก้โค้ดหลัก — แต่แต่ละแพลตฟอร์มต้องมีสิทธิ์/แอปของตัวเองตามข้อกำหนด API</div></div>
-      <div class="form-row"><label for="socialSupabaseUrl">Supabase Project URL (สำหรับ OAuth/จัดเก็บการเชื่อมต่อ)</label><input class="text-input" id="socialSupabaseUrl" placeholder="https://your-project.supabase.co"></div>
+      <div class="alert">เชื่อมต่อเฉพาะบัญชีที่คุณเป็นเจ้าของหรือมีสิทธิ์จัดการเท่านั้น ระบบรุ่นนี้ยังไม่โพสต์จริง จะเก็บเป็น Draft และแสดง Preview ก่อน</div>
+      <div class="form-row"><label for="socialSupabaseUrl">Supabase Project URL</label><input class="text-input" id="socialSupabaseUrl" placeholder="https://your-project.supabase.co"></div>
       <div class="form-row"><label for="socialSupabaseAnonKey">Supabase anon key</label><input class="text-input" id="socialSupabaseAnonKey" type="password" autocomplete="off" placeholder="eyJ..."><div class="form-help">ใช้ anon/publishable key เท่านั้น ห้ามใช้ service_role key</div></div>
       <div class="form-row"><div class="social-connection-card"><div><strong>Facebook Page</strong><div class="form-help">ต้องใช้ Meta App และสิทธิ์จัดการ Page</div></div><button class="primary-button" id="connectFacebookButton">เชื่อมต่อ Facebook</button></div></div>
       <div class="form-row"><div class="social-connection-card"><div><strong>TikTok</strong><div class="form-help">ต้องเปิด Content Posting API และขอสิทธิ์ video.publish</div></div><button class="primary-button" id="connectTiktokButton">เชื่อมต่อ TikTok</button></div></div>
-      <div class="button-row"><button class="secondary-button" id="testFacebookTokenButton">ทดสอบ Facebook Token</button><button class="secondary-button" id="saveFacebookTokenButton">บันทึกและเชื่อมต่อ Facebook</button><button class="secondary-button" id="testTiktokTokenButton">ทดสอบ TikTok Token</button><button class="secondary-button" id="saveTiktokTokenButton">บันทึกและเชื่อมต่อ TikTok</button></div><div id="socialTokenStatus" class="form-help"></div><div id="socialConnectionsList" class="form-help">ยังไม่ได้โหลดการเชื่อมต่อ</div>
+      <div id="socialConnectionsList" class="form-help">ยังไม่ได้โหลดการเชื่อมต่อ</div>
       <h3>สร้าง Content Draft</h3>
       <div class="form-row"><label for="draftTitle">หัวข้อ</label><input class="text-input" id="draftTitle" maxlength="120" placeholder="เช่น โปรโมชันประจำสัปดาห์"></div>
       <div class="form-row"><label for="draftBody">ข้อความโพสต์</label><textarea class="textarea-input" id="draftBody" maxlength="5000" placeholder="เขียนข้อความที่ต้องการให้ AI ช่วยปรับหรือเตรียมไว้สำหรับ Preview"></textarea></div>
@@ -1668,20 +1645,6 @@ html[data-theme="dark"] .alert {
       </div>
     </div>
 
-    <div class="settings-page" data-page="features">
-      <h3>ฟีเจอร์ในตัวที่ทำงานบนเว็บ</h3>
-      <div class="feature-grid">
-        <div class="feature-card"><strong>Task Planner</strong><span>แยกงานคุยกับงานที่กำลังทำ จัดลำดับความสำคัญ และแสดงเฉพาะสถานะงานล่าสุดบนมอนิเตอร์</span></div>
-        <div class="feature-card"><strong>Long-memory</strong><span>แสดงย้อนหลัง 10 ข้อความ แต่เก็บข้อความเก่าใน memory ของแชตเพื่อส่งกลับเป็นบริบท</span></div>
-        <div class="feature-card"><strong>Provider Failover</strong><span>หลายค่าย หลายโมเดล หลาย Token และสลับอัตโนมัติเมื่อ quota/rate-limit/error</span></div>
-        <div class="feature-card"><strong>ไฟล์จำลอง / Workspace</strong><span>ใช้ไฟล์แนบและ GitHub Workspace เป็นแหล่งบริบทโดยไม่ต้องแสดงทุกอย่างบนหน้าหลัก</span></div>
-        <div class="feature-card"><strong>Utilities</strong><span>คำสั่งในเครื่องสำหรับคำนวณ, JSON format/minify, เวลา, Base64 และตรวจ URL เบื้องต้น</span></div>
-        <div class="feature-card"><strong>Safety</strong><span>ไม่แสดง chain-of-thought ภายใน ให้เห็นเฉพาะแผนงาน/สถานะที่จำเป็นต่อการติดตามงาน</span></div>
-      </div>
-      <div class="form-row" style="margin-top:14px"><label>โหมดการจัดคิวงาน</label><select class="select-input" id="settingTaskMode"><option value="smart">Smart — งานเร่งด่วนขึ้นก่อน</option><option value="fifo">FIFO — ทำตามลำดับที่เข้ามา</option></select></div>
-      <div class="form-row"><label>จำนวนข้อความที่แสดงในแชต</label><input class="text-input" id="settingVisibleMessages" type="number" min="5" max="50" step="1"></div>
-    </div>
-
     <div class="settings-page" data-page="data">
       <h3>ข้อมูลและประวัติ</h3>
       <div class="form-help">ประวัติแชตทั้งหมดเก็บอยู่ในเครื่องนี้เท่านั้น (IndexedDB) ไม่มีการส่งออกไปเซิร์ฟเวอร์ภายนอกใดๆ</div>
@@ -1693,6 +1656,21 @@ html[data-theme="dark"] .alert {
       <div class="form-row"><label for="skillInstructions">คำแนะนำให้ AI</label><textarea class="textarea-input" id="skillInstructions" placeholder="ขั้นตอนและข้อควรทำของทักษะนี้"></textarea></div>
       <div class="button-row"><button class="primary-button" id="saveSkillButton">บันทึก Skill</button><button class="secondary-button" id="loadSkillsButton">รีเฟรชรายการ</button></div>
       <div id="skillsList" class="form-help"></div>
+
+      <h3>คลังข้อมูลอ้างอิงของ AI (Knowledge Base)</h3>
+      <div class="form-help">เก็บข้อมูล/เอกสารไว้ในเครื่องนี้ให้ AI ดึงมาใช้ตอบแทนการเดา ไม่แสดงในหน้าแชท ระบบจะเลือกเนื้อหาที่เกี่ยวข้องกับคำถามมาแนบให้ AI อัตโนมัติ</div>
+      <div class="form-row"><label for="knowledgeName">ชื่อเอกสาร</label><input class="text-input" id="knowledgeName" placeholder="เช่น ราคาสินค้า, นโยบายร้าน"></div>
+      <div class="form-row"><label for="knowledgeContent">เนื้อหา</label><textarea class="textarea-input" id="knowledgeContent" placeholder="วางข้อมูล ข้อเท็จจริง หรือเอกสารที่ต้องการให้ AI อ้างอิง"></textarea></div>
+      <div class="button-row"><button class="primary-button" id="saveKnowledgeButton">บันทึกข้อมูลอ้างอิง</button></div>
+      <div id="knowledgeList" class="form-help"></div>
+
+      <h3>สำรอง/กู้คืนประวัติแชตทั้งหมด</h3>
+      <div class="form-help">ส่งออก/นำเข้าแชตทั้งหมดเป็นไฟล์ JSON เก็บไว้เอง ทำงานในเบราว์เซอร์ล้วนๆ ไม่ผ่านเซิร์ฟเวอร์ใดๆ</div>
+      <div class="button-row">
+        <button class="secondary-button" id="exportAllChatsButton">ส่งออกแชตทั้งหมด (.json)</button>
+        <button class="secondary-button" id="importAllChatsButton">นำเข้าแชต (.json)</button>
+        <input type="file" id="importAllChatsInput" accept="application/json" class="hidden">
+      </div>
 
       <h3>GitHub (Direct API — ทำงานทันที)</h3>
       <div class="alert">เชื่อมต่อ GitHub API ตรงจากเบราว์เซอร์เลย ไม่ผ่าน Supabase, ฐานข้อมูลงาน, คิวงาน หรือ Agent ตัวกลางใดๆ ต้องใช้ Personal Access Token เท่านั้น — ถ้าจะให้ AI สลับไปมาระหว่างหลายรีโพเองได้ (เช่นตอบเรื่องรีโพ A แล้วค่อยแก้รีโพ B) ให้ใช้ Classic token สิทธิ์ "repo" หรือ Fine-grained token ที่ให้สิทธิ์ครบทุกรีโพที่ต้องการ ถ้าจะจำกัดสิทธิ์แค่รีโพเดียวก็ทำได้เช่นกัน แต่ AI จะใช้ได้เฉพาะรีโพนั้น — Token จะถูกเก็บไว้ในเครื่องนี้เท่านั้น (localStorage ของเบราว์เซอร์) อย่าแชร์สกรีนช็อตหรือไฟล์ export ที่มี Token ติดไปด้วย</div>
@@ -1829,13 +1807,8 @@ const DEFAULT_SETTINGS = {
   githubBranch: "main",
   supabaseUrl: "https://abtsctwfkgzciseppach.supabase.co",
   supabaseAnonKey: "",
-  socialFacebookToken: "",
-  socialTiktokToken: "",
-  taskMode: "smart",
-  visibleMessages: 10,
-  autoRecovery: true,
-  retryForever: true,
-  retryMaxBackoffMs: 30000
+  localAiEnabled: false,
+  localAiModel: "Llama-3.2-1B-Instruct-q4f16_1-MLC"
 };
 const PUBLIC_ENDPOINTS = Object.freeze({
   githubApi: "https://api.github.com",
@@ -1883,11 +1856,11 @@ function applyProviderPreset(provider, rowEl) {
   const preset = PROVIDER_PRESETS[provider];
   if (!preset) return;
   const endpointInput = rowEl.querySelector(".provider-endpoint");
-  const modelInput = rowEl.querySelector(".provider-models");
+  const modelInput = rowEl.querySelector(".provider-model");
   const modelList = rowEl.querySelector(".provider-model-list");
-  if (endpointInput) { endpointInput.value = preset.endpoint || endpointInput.value; endpointInput.readOnly = provider !== "custom"; endpointInput.title = endpointInput.readOnly ? "ระบบกำหนด URL ให้ตามผู้ให้บริการ" : "กำหนด URL เองได้"; }
+  if (endpointInput && preset.endpoint) endpointInput.value = preset.endpoint;
   if (modelList) modelList.innerHTML = preset.models.map(m => `<option value="${escapeHtml(m)}"></option>`).join("");
-  if (modelInput && !modelInput.value && preset.models[0]) modelInput.value = preset.models.join("\n");
+  if (modelInput && !modelInput.value && preset.models[0]) modelInput.value = preset.models[0];
 }
 
 const state = {
@@ -1901,10 +1874,35 @@ const state = {
   renderQueued: false,
   dragDepth: 0,
   recognition: null,
-  tasks: [],
-  activeTaskId: null,
-  taskQueue: []
+  taskQueue: [],
+  visibleCounts: {}
 };
+
+function taskAdd(label) {
+  const task = {id: uid("task"), label, status: "queued", createdAt: Date.now()};
+  state.taskQueue.push(task);
+  renderTaskMonitor();
+  return task;
+}
+function taskUpdate(task, status) {
+  task.status = status;
+  renderTaskMonitor();
+}
+function renderTaskMonitor() {
+  const box = document.getElementById("taskMonitor");
+  if (!box) return;
+  const running = state.taskQueue.find(t => t.status === "running");
+  const queued = state.taskQueue.filter(t => t.status === "queued");
+  if (!running && !queued.length) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const current = document.getElementById("taskMonitorCurrent");
+  current.innerHTML = running
+    ? `<span class="dot"></span><span>กำลังทำ: ${escapeHtml(running.label)}${queued.length ? ` (คิวถัดไป ${queued.length})` : ""}</span>`
+    : `<span class="dot"></span><span>รอคิว: ${escapeHtml(queued[0]?.label || "")} (${queued.length} งาน)</span>`;
+  const list = document.getElementById("taskMonitorQueue");
+  const recent = state.taskQueue.slice(-30);
+  list.innerHTML = recent.map(t => `<div class="${t.status === "done" ? "done" : t.status === "error" ? "err" : ""}">${t.status === "running" ? "▶" : t.status === "done" ? "✓" : t.status === "error" ? "✕" : "…"} ${escapeHtml(t.label)}</div>`).join("");
+}
 
 const DB_NAME = "nova_chat_database";
 const DB_VERSION = 1;
@@ -1923,12 +1921,9 @@ function loadSettings() {
     if (settings.model === "gemini-2.5-flash") settings.model = "gemini-3.6-flash";
     if (!Array.isArray(settings.providers) || !settings.providers.length) {
       settings.providers = (settings.endpoint && settings.model)
-        ? [{id: uid("prov"), presetId: settings.provider || "custom", label: PROVIDER_PRESETS[settings.provider]?.label || "ผู้ให้บริการหลัก", endpoint: settings.endpoint, apiKey: settings.apiKey || "", model: settings.model, models:[settings.model], apiKeys: settings.apiKey ? [settings.apiKey] : [], enabled: true}]
+        ? [{id: uid("prov"), presetId: settings.provider || "custom", label: PROVIDER_PRESETS[settings.provider]?.label || "ผู้ให้บริการหลัก", endpoint: settings.endpoint, apiKey: settings.apiKey || "", model: settings.model, enabled: true}]
         : [];
     }
-    settings.visibleMessages = Math.max(5, Math.min(50, Number(settings.visibleMessages) || 10));
-    settings.taskMode = settings.taskMode === "fifo" ? "fifo" : "smart";
-    settings.providers = settings.providers.map(p => ({...p, models:Array.isArray(p.models)&&p.models.length?p.models:(p.model?[p.model]:[]), apiKeys:Array.isArray(p.apiKeys)&&p.apiKeys.length?p.apiKeys:(p.apiKey?[p.apiKey]:[])}));
     return settings;
   } catch {
     return {...DEFAULT_SETTINGS};
@@ -2020,38 +2015,53 @@ async function ensureSocialSession() {
 }
 function socialFunctionUrl(action = "list", provider = "") { const base = state.settings.supabaseUrl.replace(/\/$/, "") + "/functions/v1/social-oauth"; return `${base}?action=${encodeURIComponent(action)}${provider ? `&provider=${encodeURIComponent(provider)}` : ""}`; }
 async function socialFunction(action = "list", provider = "", extra = "", payload = null) { const session = await ensureSocialSession(); const response = await fetch(socialFunctionUrl(action, provider) + extra, {method:payload ? "POST" : "GET", headers:{apikey:state.settings.supabaseAnonKey, Authorization:"Bearer " + session.access_token, ...(payload ? {"Content-Type":"application/json"} : {})}, body:payload ? JSON.stringify(payload) : undefined}); const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`); return data; }
-async function testDirectSocialToken(provider){
-  const token=provider==="facebook"?state.settings.socialFacebookToken:state.settings.socialTiktokToken;
-  if(!token) throw new Error("ยังไม่ได้ใส่ API Token");
-  const status=$("#socialTokenStatus"); status.textContent="กำลังทดสอบ...";
-  try{
-    const url=provider==="facebook" ? PUBLIC_ENDPOINTS.metaGraph+"/me?fields=id,name&access_token="+encodeURIComponent(token) : PUBLIC_ENDPOINTS.tiktokOpenApi+"/user/info/?fields=open_id,display_name";
-    const headers=provider==="tiktok"?{Authorization:"Bearer "+token}:{};
-    const r=await fetch(url,{headers}); const data=await r.json().catch(()=>({}));
-    if(!r.ok || data.error) throw new Error(data.error?.message||data.error?.message_description||`HTTP ${r.status}`);
-    status.textContent=`✓ ${provider} Token ใช้งานได้`+(data.name?` — ${data.name}`:"");
-  }catch(e){ status.textContent=`✗ ${e.message}`; throw e; }
-}
-
 async function connectSocial(provider) { const data = await socialFunction("start", provider); if (!data.auth_url) throw new Error("ไม่ได้รับ OAuth URL"); location.href = data.auth_url; }
-async function saveSocialToken(provider) {
-  const input = provider === "facebook" ? $("#socialFacebookToken") : $("#socialTiktokToken");
-  const token = input?.value.trim();
-  if (!token) throw new Error("กรุณาใส่ Token ก่อน");
-  const result = await socialFunction("token_connect", provider, "", {access_token: token});
-  input.value = "";
-  state.settings.socialFacebookToken = provider === "facebook" ? "" : state.settings.socialFacebookToken;
-  state.settings.socialTiktokToken = provider === "tiktok" ? "" : state.settings.socialTiktokToken;
-  persistSettings();
-  await loadSocialConnections();
-  toast(`เชื่อมต่อ ${provider} สำเร็จ — Token ถูกเข้ารหัสบนเซิร์ฟเวอร์แล้ว`);
-  return result;
-}
 async function loadSocialConnections() { const box = $("#socialConnectionsList"); if (!box) return; try { const data = await socialFunction("list"); box.innerHTML = (data.data || []).map(item => `<div class="social-row"><span><strong>${escapeHtml(item.display_name)}</strong><br><small>${escapeHtml(item.provider)} · เชื่อมต่อแล้ว</small></span><button class="danger-button social-disconnect" data-connection-id="${escapeHtml(item.id)}">ยกเลิกการเชื่อมต่อ</button></div>`).join("") || "ยังไม่มีบัญชีที่เชื่อมต่อ"; } catch (error) { box.textContent = error.message; } }
 function renderContentPreview() { const title = $("#draftTitle")?.value.trim() || "ยังไม่มีหัวข้อ"; const body = $("#draftBody")?.value.trim() || "ยังไม่มีข้อความโพสต์"; const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value).join(" · ") || "ยังไม่ได้เลือกแพลตฟอร์ม"; const media = $("#draftMediaUrl")?.value.trim(); $("#contentPreview").innerHTML = `<strong>${escapeHtml(title)}</strong><div style="margin:10px 0">${escapeHtml(body)}</div><small>${escapeHtml(platforms)} · Draft เท่านั้น${media ? " · มีสื่อแนบ" : ""}</small>`; }
 async function publishContentDraft() { const policy=loadPolicy(); if(policy.emergencyStop) throw new Error("ถูกหยุดฉุกเฉิน"); const platforms=[...document.querySelectorAll(".draft-platform:checked")].map(item=>item.value); const body=$("#draftBody").value.trim(); const mediaUrl=$("#draftMediaUrl").value.trim(); if(!body) throw new Error("กรุณาใส่ข้อความโพสต์"); if(!platforms.length) throw new Error("กรุณาเลือกแพลตฟอร์ม"); if(!confirm("ยืนยันเผยแพร่จริงไปยัง " + platforms.join(", ") + " ? การกระทำนี้ส่งออกไปยังบัญชีภายนอกทันที")) return; const list=await socialFunction("list"); const targets=(list.data||[]).filter(item=>platforms.includes(item.provider) && ((item.provider==="facebook" && policy.allowFacebook) || (item.provider==="tiktok" && policy.allowTiktok))); if(!targets.length) throw new Error("ยังไม่มีบัญชีที่เชื่อมต่อสำหรับแพลตฟอร์มที่เลือก"); const results=[]; for(const target of targets) results.push(await socialFunction("publish", target.provider, "", {connection_id:target.id, body, media_url:mediaUrl, title:$("#draftTitle").value.trim()})); $("#draftStatus").textContent="เผยแพร่จริงแล้ว: " + results.map(item=>item.provider||"account").join(", "); toast("เผยแพร่จริงสำเร็จ"); }
 
 async function saveContentDraft() { const session = await ensureSocialSession(); const body = $("#draftBody").value.trim(); if (!body) throw new Error("กรุณาใส่ข้อความโพสต์"); const platforms = [...document.querySelectorAll(".draft-platform:checked")].map(item => item.value); if (!platforms.length) throw new Error("กรุณาเลือกแพลตฟอร์มอย่างน้อยหนึ่งรายการ"); await socialRequest("/rest/v1/content_drafts", {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify({user_id:session.user.id, title:$("#draftTitle").value.trim(), body, target_platforms:platforms, status:"draft"})}); $("#draftStatus").textContent = "บันทึก Draft แล้ว — ยังไม่มีการโพสต์ออกไป"; toast("บันทึก Content Draft แล้ว"); }
+
+// Hidden knowledge base: reference documents the AI can pull facts from to
+// reduce guessing. Stored locally, managed from Settings > ข้อมูล, and
+// never shown inside the chat thread itself.
+function loadKnowledgeBase() {
+  try { return JSON.parse(localStorage.getItem("nova_knowledge_base") || "[]"); }
+  catch { return []; }
+}
+function saveKnowledgeBase(list) {
+  localStorage.setItem("nova_knowledge_base", JSON.stringify(list));
+}
+function addKnowledgeEntry(name, content) {
+  const list = loadKnowledgeBase();
+  list.push({id: uid("kb"), name: name || "ไม่มีชื่อ", content: content || ""});
+  saveKnowledgeBase(list);
+  renderKnowledgeList();
+}
+function deleteKnowledgeEntry(id) {
+  saveKnowledgeBase(loadKnowledgeBase().filter(item => item.id !== id));
+  renderKnowledgeList();
+}
+function renderKnowledgeList() {
+  const box = $("#knowledgeList");
+  if (!box) return;
+  const list = loadKnowledgeBase();
+  box.innerHTML = list.length ? list.map(item => `<div class="social-row"><span><strong>${escapeHtml(item.name)}</strong><br><small>${item.content.length} ตัวอักษร</small></span><button class="danger-button knowledge-delete" data-knowledge-id="${escapeHtml(item.id)}">ลบ</button></div>`).join("") : "ยังไม่มีข้อมูลอ้างอิง";
+}
+// Very small keyword-overlap retrieval — no server, runs entirely client-side.
+function getKnowledgeContext(query) {
+  const list = loadKnowledgeBase();
+  if (!list.length || !query) return "";
+  const words = [...new Set(String(query).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])].filter(w => w.length > 1);
+  if (!words.length) return "";
+  const scored = list.map(item => {
+    const hay = (item.name + " " + item.content).toLowerCase();
+    const score = words.reduce((sum, w) => sum + (hay.includes(w) ? 1 : 0), 0);
+    return {item, score};
+  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
+  if (!scored.length) return "";
+  return scored.map(x => `### ${x.item.name}\n${x.item.content}`).join("\n\n");
+}
 
 function loadSkillsLocal() {
   try {
@@ -2179,9 +2189,40 @@ function emergencyStop() { const p=loadPolicy(); p.emergencyStop=true; p.allowCo
 function workspaceKey() { return "nova_workspace_" + [state.settings.githubOwner, state.settings.githubRepo, state.settings.githubBranch || "main"].join("/"); }
 function loadWorkspace() { try { return JSON.parse(localStorage.getItem(workspaceKey()) || "{\"files\":{}}") || {files:{}}; } catch { return {files:{}}; } }
 function saveWorkspace(workspace) { localStorage.setItem(workspaceKey(), JSON.stringify(workspace)); renderWorkspace(); }
-function renderWorkspace() { const box=$("#workspaceList"), diff=$("#workspaceDiff"); if(!box||!diff)return; const ws=loadWorkspace(), files=Object.values(ws.files||{}); box.innerHTML=files.length ? files.map(f=>`<div class="social-row"><span><strong>${escapeHtml(f.path)}</strong><br><small>${f.status === "modified" ? "แก้ไขแล้วใน Preview" : "อ่านเข้า Workspace แล้ว"} · ${f.content.length} chars</small></span><button class="secondary-button workspace-open" data-workspace-path="${escapeHtml(f.path)}">เปิด</button></div>`).join("") : "ยังไม่มีไฟล์ใน Workspace"; diff.textContent=files.map(f=>`--- ${f.path} [${f.status}]\n+++ Preview\n${f.content}`).join("\n\n"); }
+function renderWorkspace() { const box=$("#workspaceList"), diff=$("#workspaceDiff"); if(!box||!diff)return; const ws=loadWorkspace(), files=Object.values(ws.files||{}); box.innerHTML=files.length ? files.map(f=>`<div class="social-row"><span><strong>${escapeHtml(f.path)}</strong><br><small>${f.status === "modified" ? "แก้ไขแล้วใน Preview" : "อ่านเข้า Workspace แล้ว"} · ${f.content.length} chars</small></span><button class="secondary-button workspace-open" data-workspace-path="${escapeHtml(f.path)}">เปิด</button></div>`).join("") : "ยังไม่มีไฟล์ใน Workspace"; diff.textContent=files.map(f=>`--- ${f.path} [${f.status}]\n${f.lastDiff || "(ไฟล์ใหม่ ยังไม่มี diff)"}`).join("\n\n"); }
 async function githubReadFile(path, branch) { requireRepoSelected(); if(!path) throw new Error("กรุณาระบุ path ของไฟล์"); const b=branch||state.settings.githubBranch||"main"; const existing=loadWorkspace().files[path]; if(existing && existing.branch===b) return {path, content:existing.content, sha:existing.sha, source:"workspace"}; const data=await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(b)}`); const content=b64DecodeUtf8(data.content||""); const ws=loadWorkspace(); ws.files[path]={path,content,sha:data.sha,branch:b,status:"unchanged"}; saveWorkspace(ws); return {path,content,sha:data.sha,source:"github-staged"}; }
-async function githubStageFile({path,content,message,branch}) { requireRepoSelected(); if(!path) throw new Error("กรุณาระบุ path ของไฟล์"); const b=branch||state.settings.githubBranch||"main"; const p=loadPolicy(); if(!p.allowEdit || p.emergencyStop) throw new Error("Policy ยังไม่อนุญาตให้ AI แก้ไฟล์"); if(!policyAllowsBranch(b) || !policyAllowsPath(path)) throw new Error("ไฟล์หรือ branch นี้อยู่นอกขอบเขต Policy"); const ws=loadWorkspace(); const prior=ws.files[path]||{}; ws.files[path]={path,content:String(content??""),sha:prior.sha||null,branch:b,status:"modified",message:message||"Update from NOVA Workspace",updatedAt:Date.now()}; saveWorkspace(ws); return {path,staged:true,publish_required:true,source:"workspace"}; }
+// Small LCS-based line diff so file edits show real +/- lines instead of a
+// wall of unrelated text — makes it obvious at a glance what the AI changed.
+function simpleLineDiff(oldText = "", newText = "") {
+  const a = oldText.split("\n"), b = newText.split("\n");
+  const n = a.length, m = b.length;
+  const dp = Array.from({length: n + 1}, () => new Uint32Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+  }
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { out.push({type: "same", line: a[i]}); i++; j++; }
+    else if (dp[i+1][j] >= dp[i][j+1]) { out.push({type: "del", line: a[i]}); i++; }
+    else { out.push({type: "add", line: b[j]}); j++; }
+  }
+  while (i < n) out.push({type: "del", line: a[i++]});
+  while (j < m) out.push({type: "add", line: b[j++]});
+  return out;
+}
+function formatDiffSummary(diff, maxLines = 12) {
+  const changed = diff.filter(d => d.type !== "same");
+  const added = changed.filter(d => d.type === "add").length;
+  const removed = changed.filter(d => d.type === "del").length;
+  const preview = changed.slice(0, maxLines).map(d => (d.type === "add" ? "+ " : "- ") + d.line).join("\n");
+  const more = changed.length > maxLines ? `\n… และอีก ${changed.length - maxLines} บรรทัดที่เปลี่ยน` : "";
+  return {added, removed, text: `+${added} / -${removed} บรรทัด\n${preview}${more}`};
+}
+
+async function githubStageFile({path,content,message,branch}) { requireRepoSelected(); if(!path) throw new Error("กรุณาระบุ path ของไฟล์"); const b=branch||state.settings.githubBranch||"main"; const p=loadPolicy(); if(!p.allowEdit || p.emergencyStop) throw new Error("Policy ยังไม่อนุญาตให้ AI แก้ไฟล์"); if(!policyAllowsBranch(b) || !policyAllowsPath(path)) throw new Error("ไฟล์หรือ branch นี้อยู่นอกขอบเขต Policy"); const ws=loadWorkspace(); const prior=ws.files[path]||{}; const newContent=String(content??""); const diff=simpleLineDiff(prior.content||"",newContent); const diffSummary=formatDiffSummary(diff); ws.files[path]={path,content:newContent,sha:prior.sha||null,branch:b,status:"modified",message:message||"Update from NOVA Workspace",updatedAt:Date.now(),lastDiff:diffSummary.text}; saveWorkspace(ws); return {path,staged:true,publish_required:true,source:"workspace",diff:diffSummary.text,lines_added:diffSummary.added,lines_removed:diffSummary.removed}; }
 async function githubPublishWorkspace(message) { requireRepoSelected(); const p=loadPolicy(); if(!p.allowCommit || p.emergencyStop) throw new Error("Policy ยังไม่อนุญาต Commit/Push หรือถูกหยุดฉุกเฉิน"); const ws=loadWorkspace(); const files=Object.values(ws.files||{}).filter(f=>f.status==="modified"); if(!files.length) throw new Error("ยังไม่มีไฟล์ที่แก้ไขใน Workspace"); const results=[]; for(const file of files){ const body={message:message||file.message||"Update from NOVA Workspace",content:b64EncodeUtf8(file.content),branch:file.branch||state.settings.githubBranch||"main"}; if(!policyAllowsBranch(file.branch) || !policyAllowsPath(file.path)) throw new Error("Workspace มีไฟล์หรือ branch นอกขอบเขต Policy"); if(file.sha) body.sha=file.sha; const data=await githubFetch(`/repos/${state.settings.githubOwner}/${state.settings.githubRepo}/contents/${encodeURI(file.path)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); results.push({path:file.path,commit_sha:data.commit?.sha,url:data.content?.html_url}); file.sha=data.content?.sha||file.sha; file.status="published"; } saveWorkspace(ws); return {published:true,files:results}; }
 
 async function githubSearchCode(query) {
@@ -2198,22 +2239,6 @@ async function githubListCommits(branch) {
   return (data || []).map(c => ({sha: c.sha.slice(0,7), message: c.commit.message, author: c.commit.author?.name, date: c.commit.author?.date}));
 }
 
-const SOCIAL_TOOLS = [
-  {type: "function", function: {name: "social_list_accounts", description: "แสดงบัญชี Facebook Page/TikTok ที่ผู้ใช้เชื่อมต่อไว้ โดยไม่เปิดเผย access token", parameters: {type: "object", properties: {}}}},
-  {type: "function", function: {name: "facebook_publish_post", description: "โพสต์ข้อความไปยัง Facebook Page ที่เชื่อมต่อไว้ ใช้เฉพาะเมื่อผู้ใช้สั่งโพสต์อย่างชัดเจนเท่านั้น ห้ามขอหรือแสดง token", parameters: {type: "object", properties: {connection_id: {type: "string", description: "id จาก social_list_accounts"}, body: {type: "string", description: "ข้อความที่จะโพสต์"}}, required: ["connection_id", "body"]}}}
-];
-function socialToolsReady() {
-  return Boolean(state.settings.supabaseUrl && state.settings.supabaseAnonKey);
-}
-async function executeSocialTool(name, args = {}) {
-  if (name === "social_list_accounts") return await socialFunction("list");
-  if (name === "facebook_publish_post") {
-    if (!String(args.body || "").trim()) throw new Error("ข้อความโพสต์ว่าง");
-    if (!String(args.connection_id || "").trim()) throw new Error("ต้องระบุบัญชีจาก social_list_accounts ก่อน");
-    return await socialFunction("publish", "facebook", "", {connection_id: args.connection_id, body: args.body});
-  }
-  throw new Error("ไม่รู้จัก social tool: " + name);
-}
 const GITHUB_TOOLS = [
   {type: "function", function: {name: "github_list_repositories", description: "แสดงรายการรีโพสิทอรี GitHub ทั้งหมดที่ Token ปัจจุบันเข้าถึงได้ (ทั้งของผู้ใช้และองค์กร) เรียกใช้เมื่อผู้ใช้พูดถึงรีโพ/โปรเจกต์ที่ยังไม่ได้เลือกไว้ หรือไม่แน่ใจว่ามีรีโพอะไรบ้าง", parameters: {type: "object", properties: {}}}},
   {type: "function", function: {name: "github_select_repository", description: "เลือกรีโพสิทอรีเป้าหมายที่จะอ่าน/แก้ไขต่อจากนี้ ต้องเรียกก่อนใช้เครื่องมือไฟล์อื่นๆ ทุกครั้งที่ต้องการเปลี่ยนไปทำงานกับรีโพอื่น", parameters: {type: "object", properties: {owner: {type: "string", description: "เจ้าของรีโพ เช่น username หรือชื่อองค์กร"}, repo: {type: "string", description: "ชื่อรีโพสิทอรี"}, branch: {type: "string", description: "branch ที่ต้องการทำงานด้วย ถ้าไม่ระบุจะใช้ default branch ของรีโพ"}}, required: ["owner", "repo"]}}},
@@ -2222,7 +2247,8 @@ const GITHUB_TOOLS = [
   {type: "function", function: {name: "github_write_file", description: "เขียนไฟล์ลง Workspace/Preview ในเครื่อง (ยังไม่ใช่ commit จริง) ขั้นตอนแรกก่อนเรียก github_publish_workspace ต่อทันทีในเทิร์นเดียวกันเสมอเมื่อผู้ใช้สั่งให้แก้/สร้างไฟล์ ไม่ต้องรอถามผู้ใช้ก่อน", parameters: {type: "object", properties: {path: {type: "string"}, content: {type: "string", description: "เนื้อหาไฟล์ทั้งหมดหลังแก้ไข"}, message: {type: "string"}, branch: {type: "string"}}, required: ["path", "content"]}}},
   {type: "function", function: {name: "github_publish_workspace", description: "commit และ push ไฟล์ทั้งหมดที่อยู่ใน Workspace ขึ้น GitHub จริงทันที เรียกทันทีต่อจาก github_write_file ทุกครั้งโดยไม่ต้องถามผู้ใช้ก่อนว่าต้องการ commit หรือไม่ ผู้ใช้มีปุ่มย้อนกลับ/ประวัติที่ฝั่งของเขาเองอยู่แล้วหากต้องแก้ไขภายหลัง", parameters: {type: "object", properties: {message: {type: "string"}}, required: []}}},
   {type: "function", function: {name: "github_search_code", description: "ค้นหาโค้ดภายในรีโพ GitHub", parameters: {type: "object", properties: {query: {type: "string"}}, required: ["query"]}}},
-  {type: "function", function: {name: "github_list_commits", description: "แสดงประวัติ commit ล่าสุดของ branch", parameters: {type: "object", properties: {branch: {type: "string"}}, required: []}}}
+  {type: "function", function: {name: "github_list_commits", description: "แสดงประวัติ commit ล่าสุดของ branch", parameters: {type: "object", properties: {branch: {type: "string"}}, required: []}}},
+  {type: "function", function: {name: "run_javascript", description: "รันโค้ด JavaScript จริงในแซนด์บ็อกซ์ของเบราว์เซอร์ผู้ใช้ทันที เพื่อคำนวณ ทดสอบ logic หรือตรวจสอบว่าโค้ดที่เขียนทำงานถูกต้องก่อนส่งคำตอบ/ก่อน commit ใช้ console.log เพื่อดูค่าระหว่างทาง ผลลัพธ์ (log ทั้งหมด + ค่าที่ return หรือ error) จะถูกส่งกลับมาให้ดูทันที ถ้าพบ error ให้แก้โค้ดแล้วลองรันใหม่เองจนกว่าจะถูกต้องก่อนสรุปคำตอบให้ผู้ใช้ ห้ามใช้เข้าถึง DOM ของหน้าเว็บจริงหรือข้อมูลผู้ใช้ ใช้ได้เฉพาะการคำนวณ/ทดสอบ logic ล้วนๆ", parameters: {type: "object", properties: {code: {type: "string", description: "โค้ด JavaScript ที่ต้องการรัน (จะถูกครอบด้วย async function อัตโนมัติ ใช้ return ได้)"}}, required: ["code"]}}}
 ];
 
 function githubToolLabel(name) {
@@ -2234,9 +2260,62 @@ function githubToolLabel(name) {
     github_write_file: "กำลังเขียนไฟล์ลง Workspace Preview",
     github_publish_workspace: "กำลังส่ง Workspace ออกไป commit",
     github_search_code: "กำลังค้นหาโค้ด",
-    github_list_commits: "กำลังอ่านประวัติ commit"
+    github_list_commits: "กำลังอ่านประวัติ commit",
+    run_javascript: "กำลังรันโค้ดทดสอบในแซนด์บ็อกซ์"
   };
   return labels[name] || `กำลังใช้เครื่องมือ ${name}`;
+}
+
+// Sandboxed JS execution: runs in a same-origin-less iframe with an empty
+// srcdoc so it has no access to the page DOM, cookies, or app state — only
+// pure computation. Console output is captured and relayed back via
+// postMessage so the model can see logs/errors and self-correct.
+let sandboxFrame = null;
+function getSandboxFrame() {
+  if (sandboxFrame && sandboxFrame.isConnected) return sandboxFrame;
+  sandboxFrame = document.createElement("iframe");
+  sandboxFrame.style.display = "none";
+  sandboxFrame.setAttribute("sandbox", "allow-scripts");
+  sandboxFrame.srcdoc = `<script>
+    window.addEventListener("message", async (event) => {
+      const {id, code} = event.data || {};
+      if (!code) return;
+      const logs = [];
+      const push = (...args) => logs.push(args.map(a => {
+        try { return typeof a === "string" ? a : JSON.stringify(a); } catch { return String(a); }
+      }).join(" "));
+      const sandboxConsole = {log: push, info: push, warn: push, error: push};
+      try {
+        const fn = new Function("console", "return (async () => {" + code + "})()");
+        const result = await fn(sandboxConsole);
+        parent.postMessage({id, ok: true, logs, result: (() => { try { return JSON.stringify(result); } catch { return String(result); } })()}, "*");
+      } catch (error) {
+        parent.postMessage({id, ok: false, logs, error: String(error && error.message || error)}, "*");
+      }
+    });
+  <\/script>`;
+  document.body.appendChild(sandboxFrame);
+  return sandboxFrame;
+}
+function runJavascriptSandboxed(code) {
+  return new Promise((resolve) => {
+    const frame = getSandboxFrame();
+    const id = uid("sbx");
+    const timeout = setTimeout(() => {
+      window.removeEventListener("message", onMessage);
+      resolve({ok: false, error: "หมดเวลา (โค้ดรันนานเกิน 5 วินาที หรือติด loop ไม่รู้จบ)", logs: []});
+    }, 5000);
+    function onMessage(event) {
+      if (!event.data || event.data.id !== id) return;
+      clearTimeout(timeout);
+      window.removeEventListener("message", onMessage);
+      resolve(event.data);
+    }
+    window.addEventListener("message", onMessage);
+    const send = () => frame.contentWindow.postMessage({id, code}, "*");
+    if (frame.contentDocument && frame.contentDocument.readyState === "complete") send();
+    else frame.addEventListener("load", send, {once: true});
+  });
 }
 
 async function executeGithubTool(name, args = {}) {
@@ -2249,6 +2328,11 @@ async function executeGithubTool(name, args = {}) {
     case "github_publish_workspace": return await githubPublishWorkspace(args.message);
     case "github_search_code": return await githubSearchCode(args.query);
     case "github_list_commits": return await githubListCommits(args.branch);
+    case "run_javascript": {
+      const outcome = await runJavascriptSandboxed(args.code || "");
+      if (!outcome.ok) throw new Error(`Error: ${outcome.error}${outcome.logs?.length ? "\nlogs: " + outcome.logs.join(" | ") : ""}`);
+      return {result: outcome.result, logs: outcome.logs};
+    }
     default: throw new Error("ไม่รู้จักเครื่องมือ: " + name);
   }
 }
@@ -2570,7 +2654,8 @@ function renderMessage(message) {
     messageActionButton("copy", "คัดลอก", ICONS.copy),
     isUser ? messageActionButton("edit", "แก้ไข", ICONS.edit) : "",
     !isUser ? messageActionButton("retry", "สร้างคำตอบใหม่", ICONS.retry) : "",
-    !isUser ? messageActionButton("speak", "อ่านออกเสียง", ICONS.speak) : ""
+    !isUser ? messageActionButton("speak", "อ่านออกเสียง", ICONS.speak) : "",
+    !isUser ? messageActionButton("remember", "จำคำตอบนี้ไว้ใช้ต่อ", ICONS.copy) : ""
   ].join("");
 
   return `
@@ -2586,15 +2671,33 @@ function renderMessage(message) {
     </article>`;
 }
 
+const VISIBLE_MESSAGE_PAGE = 10;
+if (!state.visibleCounts) state.visibleCounts = {};
+
 function renderChat(options = {}) {
   const chat = currentChat();
   const hasMessages = chat && chat.messages.length;
   $("#welcome").classList.toggle("hidden", Boolean(hasMessages));
-  const visibleCount = Math.max(5, Math.min(50, Number(state.settings.visibleMessages) || 10));
-  const hiddenCount = hasMessages ? Math.max(0, chat.messages.length - visibleCount) : 0;
-  const memoryHtml = hiddenCount ? `<div class="message memory-note">ซ่อนข้อความเก่า ${hiddenCount} รายการไว้ใน Memory แต่ยังถูกเก็บและใช้เป็นบริบทเมื่อจำเป็น</div>` : "";
-  const visibleMessages = hasMessages ? chat.messages.slice(-visibleCount) : [];
-  $("#messageList").innerHTML = hasMessages ? memoryHtml + visibleMessages.map(renderMessage).join("") : "";
+
+  if (hasMessages) {
+    if (!state.visibleCounts[chat.id]) state.visibleCounts[chat.id] = VISIBLE_MESSAGE_PAGE;
+    const visibleCount = Math.min(state.visibleCounts[chat.id], chat.messages.length);
+    const startIndex = chat.messages.length - visibleCount;
+    const hiddenCount = startIndex;
+    const loadMoreHtml = hiddenCount > 0
+      ? `<div class="load-more-row" style="text-align:center;padding:8px 0;">
+           <button class="secondary-button" id="loadOlderMessages">โหลดข้อความก่อนหน้า (เหลือ ${hiddenCount} ข้อความ ถูกเก็บไว้ในความจำ)</button>
+         </div>`
+      : "";
+    $("#messageList").innerHTML = loadMoreHtml + chat.messages.slice(startIndex).map(renderMessage).join("");
+    const loadBtn = document.getElementById("loadOlderMessages");
+    if (loadBtn) loadBtn.addEventListener("click", () => {
+      state.visibleCounts[chat.id] = visibleCount + VISIBLE_MESSAGE_PAGE;
+      renderChat({scroll:false});
+    });
+  } else {
+    $("#messageList").innerHTML = "";
+  }
 
   document.querySelectorAll(".direct-execution-events").forEach(el => { el.scrollTop = el.scrollHeight; });
 
@@ -2695,7 +2798,7 @@ function openSettings(page = "general") {
   fillPolicyForm();
   renderWorkspace();
   switchSettingsPage(page);
-  if (page === "social") { $("#socialSupabaseUrl").value = state.settings.supabaseUrl || ""; $("#socialSupabaseAnonKey").value = state.settings.supabaseAnonKey || ""; $("#socialFacebookToken").value = state.settings.socialFacebookToken || ""; $("#socialTiktokToken").value = state.settings.socialTiktokToken || ""; loadSocialConnections(); renderContentPreview(); }
+  if (page === "social") { $("#socialSupabaseUrl").value = state.settings.supabaseUrl || ""; $("#socialSupabaseAnonKey").value = state.settings.supabaseAnonKey || ""; loadSocialConnections(); renderContentPreview(); }
   $("#settingsModal").classList.add("open");
   $("#modalBackdrop").classList.add("open");
 }
@@ -2722,16 +2825,15 @@ function providerRowHtml(p, index, total) {
   presetSelect.value = PROVIDER_PRESETS[p.presetId] ? p.presetId : "custom";
   row.querySelector(".provider-label").value = p.label || "";
   row.querySelector(".provider-endpoint").value = p.endpoint || "";
-  const modelInput = row.querySelector(".provider-models");
-  const models = Array.isArray(p.models) && p.models.length ? p.models : (p.model ? [p.model] : (PROVIDER_PRESETS[p.presetId]?.models || []));
-  modelInput.value = models.join("\n");
+  const modelInput = row.querySelector(".provider-model");
+  modelInput.value = p.model || "";
   const modelList = row.querySelector(".provider-model-list");
   const listId = "modelList_" + p.id;
   modelList.id = listId;
   modelInput.setAttribute("list", listId);
   const preset = PROVIDER_PRESETS[presetSelect.value];
   if (preset) modelList.innerHTML = preset.models.map(m => `<option value="${escapeHtml(m)}"></option>`).join("");
-  row.querySelector(".provider-tokens").value = (Array.isArray(p.apiKeys) && p.apiKeys.length ? p.apiKeys : (p.apiKey ? [p.apiKey] : [])).join("\n");
+  row.querySelector(".provider-key").value = p.apiKey || "";
   row.querySelector(".provider-up").disabled = index === 0;
   row.querySelector(".provider-down").disabled = index === total - 1;
   return row;
@@ -2750,10 +2852,8 @@ function collectProvidersFromForm() {
     presetId: row.querySelector(".provider-preset").value,
     label: row.querySelector(".provider-label").value.trim(),
     endpoint: row.querySelector(".provider-endpoint").value.trim(),
-    models: row.querySelector(".provider-models").value.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean),
-    model: row.querySelector(".provider-models").value.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean)[0] || "",
-    apiKeys: row.querySelector(".provider-tokens").value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),
-    apiKey: row.querySelector(".provider-tokens").value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean)[0] || "",
+    model: row.querySelector(".provider-model").value.trim(),
+    apiKey: row.querySelector(".provider-key").value.trim(),
     enabled: row.querySelector(".provider-enabled").checked
   })).filter(p => p.endpoint && p.model);
 }
@@ -2765,6 +2865,7 @@ function fillSettingsForm() {
   $("#githubRepo").value = s.githubRepo || "";
   $("#githubBranch").value = s.githubBranch || "";
   renderSkillsList();
+  renderKnowledgeList();
   $("#settingAppName").value = s.appName;
   $("#settingUserName").value = s.userName;
   $("#settingTheme").value = s.theme;
@@ -2778,12 +2879,10 @@ function fillSettingsForm() {
   $("#settingMaxTokens").value = s.maxTokens;
   $("#settingStream").checked = s.stream;
   $("#settingVision").checked = s.vision;
+  $("#settingLocalAiEnabled").checked = Boolean(s.localAiEnabled);
+  $("#settingLocalAiModel").value = s.localAiModel || DEFAULT_SETTINGS.localAiModel;
   $("#socialSupabaseUrl").value = s.supabaseUrl || "";
   $("#socialSupabaseAnonKey").value = s.supabaseAnonKey || "";
-  $("#socialFacebookToken").value = s.socialFacebookToken || "";
-  $("#socialTiktokToken").value = s.socialTiktokToken || "";
-  $("#settingTaskMode").value = s.taskMode || "smart";
-  $("#settingVisibleMessages").value = s.visibleMessages || 10;
 }
 
 function readSettingsForm() {
@@ -2817,23 +2916,20 @@ function readSettingsForm() {
     maxTokens: Math.max(64, Number($("#settingMaxTokens").value) || 4096),
     stream: $("#settingStream").checked,
     vision: $("#settingVision").checked,
+    localAiEnabled: $("#settingLocalAiEnabled").checked,
+    localAiModel: $("#settingLocalAiModel").value,
     githubToken: $("#githubToken").value.trim(),
     githubOwner: $("#githubOwner").value.trim(),
     githubRepo: $("#githubRepo").value.trim(),
     githubBranch: $("#githubBranch").value.trim() || "main",
     supabaseUrl: $("#socialSupabaseUrl").value.trim().replace(/\/$/, ""),
-    supabaseAnonKey: $("#socialSupabaseAnonKey").value.trim(),
-    socialFacebookToken: $("#socialFacebookToken").value.trim(),
-    socialTiktokToken: $("#socialTiktokToken").value.trim(),
-    taskMode: $("#settingTaskMode").value === "fifo" ? "fifo" : "smart",
-    visibleMessages: Math.max(5, Math.min(50, Number($("#settingVisibleMessages").value) || 10))
+    supabaseAnonKey: $("#socialSupabaseAnonKey").value.trim()
   };
 }
 
 async function saveSettings() {
   try {
     state.settings = readSettingsForm();
-    state.chats.forEach(updateChatMemory);
     persistSettings();
     applySettings();
     renderSidebar();
@@ -2895,16 +2991,22 @@ function buildApiContent(message) {
   return text;
 }
 
-function buildSystemPrompt() {
+function buildSystemPrompt(latestUserText = "") {
   const parts = [];
   if (state.settings.systemPrompt) parts.push(state.settings.systemPrompt);
-  parts.push(`กฎความแม่นยำ: ห้ามเดาข้อเท็จจริงที่ไม่ทราบ หากข้อมูลไม่พอให้บอกสิ่งที่ยังไม่ทราบและใช้เครื่องมือ/ไฟล์ที่มีอยู่ก่อนสรุป ห้ามแต่ง URL, API, โมเดล หรือผลการทำงานขึ้นเอง. สำหรับงานหลายขั้นตอน ให้คิดเป็นแผนงานภายในและแสดงต่อผู้ใช้เฉพาะสถานะ/ขั้นตอนที่จำเป็น ไม่เปิดเผย chain-of-thought หรือเหตุผลภายในแบบละเอียด.`);
+
+  const knowledge = getKnowledgeContext(latestUserText);
+  if (knowledge) {
+    parts.push(`ข้อมูลอ้างอิงที่เกี่ยวข้องกับคำถามนี้ (จากคลังข้อมูลของผู้ใช้ ใช้ข้อมูลนี้แทนการเดา ถ้าไม่พบคำตอบในนี้ให้บอกตามความจริงว่าไม่แน่ใจแทนการเดามั่ว):\n\n${knowledge}`);
+  }
 
   const skills = (loadSkillsLocal() || []).filter(skill => skill.enabled);
   if (skills.length) {
     const skillsText = skills.map(skill => `### ${skill.name}\n${skill.instructions}`).join("\n\n");
     parts.push(`แนวทาง/Skills ที่ผู้ใช้กำหนดไว้ ให้ใช้เป็นแนวทางเมื่อเกี่ยวข้อง:\n\n${skillsText}`);
   }
+
+  parts.push(`คุณมีเครื่องมือ run_javascript ที่รันโค้ด JavaScript จริงในแซนด์บ็อกซ์ของผู้ใช้ได้ทันที ใช้มันทุกครั้งที่ต้องคำนวณเลขที่ซับซ้อน ตรวจสอบ logic อัลกอริทึม parse ข้อมูล หรือทดสอบว่าโค้ดที่คุณกำลังจะให้ผู้ใช้ทำงานถูกต้องจริงก่อนตอบ — ห้ามคำนวณหรือเดาผลลัพธ์ในหัวเฉยๆ ถ้าเครื่องมือรันได้จริง ถ้าเจอ error จาก run_javascript ให้อ่าน error แล้วแก้โค้ดเองแล้วรันซ้ำจนกว่าจะผ่าน ก่อนค่อยสรุปคำตอบสุดท้ายให้ผู้ใช้ ไม่ต้องถามอนุญาตก่อนใช้เครื่องมือนี้เพราะปลอดภัย ไม่แตะข้อมูลผู้ใช้`);
 
   if (githubReady()) {
     const current = githubRepoSelected()
@@ -2924,15 +3026,58 @@ function buildSystemPrompt() {
 
 function buildApiMessages(chat, endIndex = chat.messages.length) {
   const result = [];
-  const systemPrompt = buildSystemPrompt();
-  if (systemPrompt) result.push({role: "system", content: systemPrompt});
-  if (chat.memory?.summary) result.push({role:"system", content:`ความทรงจำของบทสนทนาก่อนหน้า (ใช้เพื่อไม่ให้ลืมบริบท):\n${chat.memory.summary}`});
-  const messages = chat.messages.slice(0, endIndex).filter(m => ["user","assistant"].includes(m.role) && m.status !== "error" && m.status !== "thinking");
-  const visibleCount = Math.max(5, Math.min(50, Number(state.settings.visibleMessages) || 10));
-  const recent = messages.slice(-visibleCount);
-  recent.forEach(message => result.push({role:message.role, content:message.role === "user" ? buildApiContent(message) : message.content}));
+  const latestUser = [...chat.messages.slice(0, endIndex)].reverse().find(m => m.role === "user");
+  const systemPrompt = buildSystemPrompt(latestUser?.content || "");
+  if (systemPrompt) {
+    result.push({role: "system", content: systemPrompt});
+  }
+
+  if (chat.memorySummary) {
+    result.push({role: "system", content: `ความทรงจำสรุปจากบทสนทนาช่วงก่อนหน้าในแชทนี้ (ข้อความเก่าที่ถูกย่อไว้เพื่อประหยัด token แต่ยังอ้างอิงได้):\n\n${chat.memorySummary}`});
+  }
+
+  const startIndex = chat.memorySummary ? Math.min(chat.memorySummarizedCount || 0, endIndex) : 0;
+  for (const message of chat.messages.slice(startIndex, endIndex)) {
+    if (!["user","assistant"].includes(message.role)) continue;
+    if (message.status === "error" || message.status === "thinking") continue;
+    result.push({
+      role: message.role,
+      content: message.role === "user" ? buildApiContent(message) : message.content
+    });
+  }
   return result;
 }
+
+const MEMORY_SUMMARY_THRESHOLD = 24; // fold older turns into a summary once a chat grows past this many messages
+async function maybeSummarizeMemory(chat) {
+  const already = chat.memorySummarizedCount || 0;
+  const foldable = chat.messages.length - MEMORY_SUMMARY_HOLDBACK - already;
+  if (foldable < MEMORY_SUMMARY_THRESHOLD) return;
+  const provider = activeProviderChain()[0];
+  if (!provider) return;
+  const toFold = chat.messages.slice(already, already + foldable)
+    .filter(m => ["user","assistant"].includes(m.role) && m.status !== "error")
+    .map(m => `${m.role === "user" ? "ผู้ใช้" : "AI"}: ${(m.content || "").slice(0, 800)}`)
+    .join("\n");
+  if (!toFold.trim()) { chat.memorySummarizedCount = already + foldable; return; }
+  try {
+    const prompt = `สรุปบทสนทนาต่อไปนี้ให้กระชับที่สุดเป็นภาษาไทย เก็บเฉพาะข้อเท็จจริง การตัดสินใจ ชื่อ ตัวเลข และสิ่งที่ต้องจำไว้ใช้ต่อในอนาคต ไม่ต้องเกริ่นนำ ไม่เกิน 200 คำ${chat.memorySummary ? `\n\nสรุปเดิมที่มีอยู่แล้ว (ให้รวมเข้าไปด้วยไม่ใช่แทนที่):\n${chat.memorySummary}` : ""}\n\nบทสนทนาที่ต้องสรุปเพิ่ม:\n${toFold}`;
+    const response = await fetch(provider.endpoint, {
+      method: "POST",
+      headers: buildRequestHeaders(provider),
+      body: JSON.stringify({model: provider.model, messages: [{role: "user", content: prompt}], temperature: 0.2, max_tokens: 500, stream: false})
+    });
+    if (!response.ok) return;
+    const json = await response.json();
+    const summary = extractResponseText(json);
+    if (summary && summary.trim()) {
+      chat.memorySummary = summary.trim();
+      chat.memorySummarizedCount = already + foldable;
+      await dbSaveChat(chat).catch(() => {});
+    }
+  } catch { /* best-effort background task; ignore failures */ }
+}
+const MEMORY_SUMMARY_HOLDBACK = 12; // always keep this many most-recent messages as raw, un-summarized context
 
 function extractResponseText(json) {
   const content = json?.choices?.[0]?.message?.content;
@@ -2953,63 +3098,15 @@ function extractDeltaText(json) {
   return "";
 }
 
-function runLocalUtility(text){
-  const t=String(text||"").trim();
-  if(/^\/json\s+/i.test(t)){ try{return "```json\n"+JSON.stringify(JSON.parse(t.replace(/^\/json\s+/i,"")),null,2)+"\n```";}catch(e){return "JSON ไม่ถูกต้อง: "+e.message;} }
-  if(/^\/json-min\s+/i.test(t)){ try{return "```text\n"+JSON.stringify(JSON.parse(t.replace(/^\/json-min\s+/i,"")))+"\n```";}catch(e){return "JSON ไม่ถูกต้อง: "+e.message;} }
-  if(/^\/calc\s+/i.test(t)){ const expr=t.replace(/^\/calc\s+/i,"").replace(/[^0-9+\-*/().% ]/g,""); if(!expr.trim()) return "ไม่พบสมการ"; try{return "ผลลัพธ์: "+String(Function("return ("+expr+")")());}catch{return "คำนวณไม่ได้";} }
-  if(/^\/time\s*$/i.test(t)) return "เวลาบนเครื่องนี้: "+new Date().toLocaleString();
-  if(/^\/b64\s+/i.test(t)){ try{return btoa(unescape(encodeURIComponent(t.replace(/^\/b64\s+/i,""))))}catch{return "เข้ารหัสไม่ได้";} }
-  return null;
-}
-
-function taskPriority(text){
-  const t=String(text||"");
-  if(/ด่วน|เร่งด่วน|urgent|asap|ทันที|สำคัญมาก/i.test(t)) return 100;
-  if(/วันนี้|deadline|กำหนดส่ง/i.test(t)) return 80;
-  return 50;
-}
-function createTaskForMessage(message){
-  const task={id:uid("task"), title:makeTitle(message.content||"งานไฟล์แนบ"), sourceMessageId:message.id, priority:taskPriority(message.content), status:"queued", createdAt:Date.now(), steps:["วิเคราะห์งาน","จัดลำดับ","ดำเนินการ","ตรวจผล"]};
-  state.tasks.push(task);
-  if(state.settings.taskMode === "smart") state.tasks.sort((a,b)=>b.priority-a.priority || a.createdAt-b.createdAt);
-  return task;
-}
-function renderTaskMonitor(){
-  const task=state.tasks.find(t=>t.status==="running") || state.tasks.find(t=>t.status==="queued");
-  const box=$("#taskMonitor"); if(!box) return;
-  if(!task){ box.classList.add("hidden"); return; }
-  box.classList.remove("hidden");
-  $("#taskMonitorState").textContent=task.status==="running"?"กำลังดำเนินการ":"รอคิว";
-  $("#taskMonitorList").innerHTML=task.steps.map((step,i)=>`<div class="task-item ${task.currentStep===i?"active":""} ${task.currentStep>i?"done":""}"><span class="task-dot"></span><span>${escapeHtml(step)}</span>${i===0?`<span class="task-priority">P${task.priority}</span>`:""}</div>`).join("");
-}
-function setTaskStep(task,index){ if(!task)return; task.currentStep=index; renderTaskMonitor(); }
-function startTask(task){ if(!task)return; task.status="running"; task.currentStep=0; state.activeTaskId=task.id; renderTaskMonitor(); }
-function finishTask(task){ if(!task)return; task.status="done"; task.currentStep=task.steps.length; state.activeTaskId=null; renderTaskMonitor(); }
-function updateChatMemory(chat){
-  const keep=Math.max(5,Math.min(50,Number(state.settings.visibleMessages)||10));
-  const old=chat.messages.slice(0,-keep).filter(m=>["user","assistant"].includes(m.role));
-  if(!old.length)return;
-  const chunks=old.slice(-80).map(m=>`${m.role==="user"?"ผู้ใช้":"AI"}: ${String(m.content||"").replace(/\s+/g," ").slice(0,700)}`);
-  chat.memory={summary:chunks.join("\n"),updatedAt:Date.now(),count:old.length};
-}
-
 async function sendMessage() {
-  const input = $("#promptInput");
-  if (state.generating && !input.value.trim() && !state.attachments.length) {
+  if (state.generating) {
     stopGeneration();
     return;
   }
+
+  const input = $("#promptInput");
   const text = input.value.trim();
   if (!text && !state.attachments.length) return;
-
-  const localResult = runLocalUtility(text);
-  if (localResult !== null) {
-    let chat0=currentChat(); if(!chat0) chat0=createChat();
-    chat0.messages.push({id:uid("msg"),role:"user",content:text,attachments:state.attachments.map(file=>({...file})),createdAt:Date.now(),status:"done"});
-    chat0.messages.push({id:uid("msg"),role:"assistant",content:localResult,attachments:[],createdAt:Date.now(),status:"done"});
-    state.attachments=[]; input.value=""; renderPendingAttachments(); updateChatMemory(chat0); await dbSaveChat(chat0).catch(handleStorageError); renderChat(); return;
-  }
 
   let chat = currentChat();
   if (!chat) chat = createChat();
@@ -3024,8 +3121,6 @@ async function sendMessage() {
   };
 
   chat.messages.push(message);
-  const task = createTaskForMessage(message);
-  startTask(task);
   if (chat.messages.filter(item => item.role === "user").length === 1) {
     chat.title = makeTitle(text);
   }
@@ -3035,52 +3130,81 @@ async function sendMessage() {
   input.style.height = "auto";
   state.attachments = [];
   renderPendingAttachments();
-  updateChatMemory(chat);
   await dbSaveChat(chat).catch(handleStorageError);
   renderSidebar();
   renderChat();
-  if (state.generating) {
-    state.taskQueue.push({chatId:chat.id, taskId:task.id});
-    if (state.settings.taskMode === "smart") state.taskQueue.sort((a,b)=>{const ta=state.tasks.find(x=>x.id===a.taskId), tb=state.tasks.find(x=>x.id===b.taskId); return (tb?.priority||0)-(ta?.priority||0) || (ta?.createdAt||0)-(tb?.createdAt||0);});
-    renderTaskMonitor();
-    toast("เพิ่มงานเข้าคิวแล้ว");
-  } else {
-    await generateAssistantResponse(chat, task);
-  }
+  await generateAssistantResponse(chat);
 }
 
+function splitMulti(value) {
+  return String(value || "").split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+}
+
+// Expands each provider row into every (model × API key) combination so that
+// running out of tokens/quota on one model or one key automatically rotates
+// to the next model, then the next backup key, before moving to the next
+// provider row entirely. Users can enter multiple models or keys separated
+// by commas or new lines in the same fields — no extra UI needed.
 function activeProviderChain() {
-  const out=[];
-  for(const p of (state.settings.providers||[])){
-    if(p.enabled===false || !p.endpoint) continue;
-    const models=(Array.isArray(p.models)&&p.models.length?p.models:[p.model]).filter(Boolean);
-    const keys=(Array.isArray(p.apiKeys)&&p.apiKeys.length?p.apiKeys:[p.apiKey]).filter(Boolean);
-    for(const model of models) for(const apiKey of (keys.length?keys:[""])) out.push({...p,model,apiKey});
+  const rows = (state.settings.providers || []).filter(p => p.enabled !== false && p.endpoint && p.model);
+  const expanded = [];
+  rows.forEach(p => {
+    const models = splitMulti(p.model);
+    const keys = splitMulti(p.apiKey);
+    const modelList = models.length ? models : [p.model];
+    const keyList = keys.length ? keys : [p.apiKey || ""];
+    modelList.forEach(model => {
+      keyList.forEach(apiKey => {
+        expanded.push({...p, model, apiKey});
+      });
+    });
+  });
+  return expanded;
+}
+
+// Local AI fallback: loads a small quantized model via WebLLM (runs fully
+// client-side over WebGPU, no API key, no server). Only used automatically
+// when every configured API provider has failed, so normal usage is
+// unaffected. Loaded lazily and cached by the browser after first download.
+let localAiEnginePromise = null;
+let localAiLoadedModel = null;
+async function getLocalAiEngine(model, onProgress) {
+  if (localAiEnginePromise && localAiLoadedModel === model) return localAiEnginePromise;
+  localAiLoadedModel = model;
+  localAiEnginePromise = (async () => {
+    const webllm = await import("https://esm.run/@mlc-ai/web-llm");
+    return await webllm.CreateMLCEngine(model, {
+      initProgressCallback: (report) => onProgress?.(report.text || "")
+    });
+  })();
+  return localAiEnginePromise;
+}
+async function generateWithLocalAI(apiMessages, onProgress) {
+  if (typeof GPU === "undefined" && !navigator.gpu) {
+    throw new Error("เบราว์เซอร์นี้ไม่รองรับ WebGPU จึงรัน AI ในเครื่องไม่ได้ (ลองใช้ Chrome/Edge เวอร์ชันล่าสุด)");
   }
-  return out;
+  const model = state.settings.localAiModel || DEFAULT_SETTINGS.localAiModel;
+  onProgress?.(`กำลังโหลดโมเดล ${model} ลงเครื่อง (ครั้งแรกอาจใช้เวลาสักครู่)...`);
+  const engine = await getLocalAiEngine(model, onProgress);
+  const trimmed = apiMessages.filter(m => m.role !== "tool" && !m.tool_calls).slice(-16);
+  const reply = await engine.chat.completions.create({
+    messages: trimmed,
+    temperature: state.settings.temperature,
+    max_tokens: Math.min(state.settings.maxTokens, 1024)
+  });
+  return reply.choices?.[0]?.message?.content || "";
 }
 
 function providerLabel(p) {
-  return p.label || PROVIDER_PRESETS[p.presetId]?.label || p.presetId || p.endpoint;
+  const base = p.label || PROVIDER_PRESETS[p.presetId]?.label || p.presetId || p.endpoint;
+  return p.model ? `${base} (${p.model})` : base;
 }
 
-async function processNextTask(){
-  if(state.generating || !state.taskQueue.length) { renderTaskMonitor(); return; }
-  const item=state.taskQueue.shift();
-  const chat=state.chats.find(c=>c.id===item.chatId);
-  const task=state.tasks.find(t=>t.id===item.taskId);
-  if(!chat || !task){ renderTaskMonitor(); return processNextTask(); }
-  await generateAssistantResponse(chat, task);
-}
-
-async function generateAssistantResponse(chat, task = null) {
-  setTaskStep(task, 0);
+async function generateAssistantResponse(chat) {
   const providerChain = activeProviderChain();
   if (!providerChain.length) {
-    if(task) finishTask(task);
     toast("กรุณาตั้งค่าผู้ให้บริการ AI อย่างน้อย 1 อันดับก่อน", "error");
     openSettings("connection");
-    if(state.taskQueue.length) setTimeout(processNextTask,0);
     return;
   }
 
@@ -3100,59 +3224,17 @@ async function generateAssistantResponse(chat, task = null) {
   updateSendButton();
   renderChat();
 
-  setTaskStep(task, 1);
-  const useGithubTools = githubReady();
-  const useSocialTools = socialToolsReady();
-  const useTools = useGithubTools || useSocialTools;
+  const useTools = true; // tools (run_javascript always; github_* when connected) are always offered so the model can self-check before answering
   const apiMessages = buildApiMessages(chat, chat.messages.length - 1);
-  if (useTools || providerChain.length > 1) assistantMessage.directExecution = {status: "running", events: []};
+  const replyTask = taskAdd(useTools ? "วิเคราะห์คำขอและวางแผนงาน" : "ตอบข้อความแชต");
+  taskUpdate(replyTask, "running");
 
-  // Automatic resilience layer: never stop the active task just because a free API is busy,
-  // rate-limited, temporarily unavailable, or one token/model has been exhausted.
-  const providerHealth = new Map();
   let providerIndex = 0;
-  let retryRound = 0;
-  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const backoff = round => Math.min(30000, 800 * Math.pow(1.6, Math.min(round, 8)) + Math.random() * 500);
-  function healthKey(p) { return `${p.endpoint}|${p.model}|${p.apiKey || "no-key"}`; }
-  function markProviderBusy(p, status) {
-    const key = healthKey(p);
-    const old = providerHealth.get(key) || {failures:0, cooldownUntil:0};
-    let cooldown = status === 429 ? 8000 : status >= 500 ? 3000 : status === 401 || status === 403 ? 60000 : 2500;
-    providerHealth.set(key, {failures: old.failures + 1, cooldownUntil: Date.now() + cooldown});
-  }
-  function availableProviderIndex(start = 0) {
-    const now = Date.now();
-    for (let n = 0; n < providerChain.length; n++) {
-      const i = (start + n) % providerChain.length;
-      const h = providerHealth.get(healthKey(providerChain[i]));
-      if (!h || h.cooldownUntil <= now) return i;
-    }
-    return -1;
-  }
-  function silentRecoveryEvent(text) {
-    if (!assistantMessage.directExecution) return;
-    // Keep recovery information compact; do not expose raw provider errors or secrets.
-    assistantMessage.directExecution.events.push({text, kind: ""});
-    if (assistantMessage.directExecution.events.length > 8) assistantMessage.directExecution.events.shift();
-    renderChat();
-  }
   async function fetchFromChain(requestBody) {
-    if (!providerChain.length) throw new Error("NO_PROVIDER");
-    while (true) {
-      if (state.abortController?.signal.aborted) throw new DOMException("Aborted", "AbortError");
-      const next = availableProviderIndex(providerIndex);
-      if (next < 0) {
-        retryRound += 1;
-        silentRecoveryEvent(`ระบบกำลังรอคิว API และลองใหม่อัตโนมัติ (${retryRound})`);
-        await sleep(backoff(retryRound));
-        providerIndex = 0;
-        continue;
-      }
-      providerIndex = next;
+    while (providerIndex < providerChain.length) {
       const provider = providerChain[providerIndex];
       const body = {...requestBody, model: provider.model};
-      let response = null, networkError = null;
+      let response, networkError;
       try {
         response = await fetch(provider.endpoint, {
           method: "POST",
@@ -3163,28 +3245,26 @@ async function generateAssistantResponse(chat, task = null) {
       } catch (err) { networkError = err; }
 
       if (networkError?.name === "AbortError") throw networkError;
-      if (response?.ok) {
-        retryRound = 0;
-        providerHealth.delete(healthKey(provider));
-        return response;
-      }
+      if (response && response.ok) return response;
 
-      const status = response?.status || 0;
-      markProviderBusy(provider, status);
-      // Move immediately to another token/model/provider. Raw errors are deliberately hidden.
-      const nextIndex = availableProviderIndex((providerIndex + 1) % providerChain.length);
-      providerIndex = nextIndex >= 0 ? nextIndex : 0;
-      retryRound += 1;
-      silentRecoveryEvent(status === 429
-        ? "API กำลังใช้งานหนาแน่น ระบบกำลังสลับ Token/โมเดลและลองใหม่"
-        : "API ชั่วคราวไม่พร้อม ระบบกำลังสลับช่องทางและลองใหม่");
-
-      if (nextIndex < 0 || providerChain.length === 1) {
-        await sleep(backoff(retryRound));
+      let details = "";
+      if (response) {
+        try { const errorJson = await response.json(); details = errorJson?.error?.message || JSON.stringify(errorJson); }
+        catch { try { details = await response.text(); } catch { details = response.statusText; } }
       } else {
-        await sleep(Math.min(1500, 250 + retryRound * 50));
+        details = networkError?.message || "เชื่อมต่อไม่สำเร็จ";
+      }
+      if (assistantMessage.directExecution) {
+        assistantMessage.directExecution.events.push({text: `${providerLabel(provider)}: ${details}`, kind: "err"});
+        renderChat();
+      }
+      providerIndex += 1;
+      if (providerIndex < providerChain.length && assistantMessage.directExecution) {
+        assistantMessage.directExecution.events.push({text: `กำลังสลับไปใช้ผู้ให้บริการอันดับถัดไป: ${providerLabel(providerChain[providerIndex])}`, kind: ""});
+        renderChat();
       }
     }
+    throw new Error("ผู้ให้บริการ AI ทุกอันดับที่ตั้งค่าไว้เชื่อมต่อไม่สำเร็จ กรุณาตรวจสอบ API Key/Endpoint ในตั้งค่า");
   }
 
   try {
@@ -3200,11 +3280,10 @@ async function generateAssistantResponse(chat, task = null) {
         stream: useTools ? false : state.settings.stream
       };
       if (useTools) {
-        requestBody.tools = [ ...(useGithubTools ? GITHUB_TOOLS : []), ...(useSocialTools ? SOCIAL_TOOLS : []) ];
+        requestBody.tools = GITHUB_TOOLS;
         requestBody.tool_choice = "auto";
       }
 
-      setTaskStep(task, 2);
       const response = await fetchFromChain(requestBody);
 
       if (!useTools && state.settings.stream && response.body) {
@@ -3220,6 +3299,7 @@ async function generateAssistantResponse(chat, task = null) {
       if (toolCalls && toolCalls.length) {
         apiMessages.push({role: "assistant", content: choiceMessage.content || null, tool_calls: toolCalls});
         assistantMessage.status = "streaming";
+        if (!assistantMessage.directExecution) assistantMessage.directExecution = {status: "running", events: []};
         for (const call of toolCalls) {
           const name = call.function?.name;
           let args = {};
@@ -3229,16 +3309,20 @@ async function generateAssistantResponse(chat, task = null) {
             : "";
           assistantMessage.directExecution.events.push({text: `${name}(${argsPreview})`, kind: ""});
           renderChat();
+          const task = taskAdd(`${githubToolLabel(name)} ${argsPreview}`.trim());
+          taskUpdate(task, "running");
           let resultPayload;
           try {
-            resultPayload = SOCIAL_TOOLS.some(tool => tool.function.name === name)
-              ? await executeSocialTool(name, args)
-              : await executeGithubTool(name, args);
-            const summary = JSON.stringify(resultPayload).slice(0, 140);
+            resultPayload = await executeGithubTool(name, args);
+            const summary = name === "github_write_file" && resultPayload.diff
+              ? resultPayload.diff
+              : JSON.stringify(resultPayload).slice(0, 140);
             assistantMessage.directExecution.events.push({text: `${githubToolLabel(name)} — ${summary}`, kind: "ok"});
+            taskUpdate(task, "done");
           } catch (toolError) {
             resultPayload = {error: toolError.message};
             assistantMessage.directExecution.events.push({text: toolError.message, kind: "err"});
+            taskUpdate(task, "error");
           }
           renderChat();
           apiMessages.push({role: "tool", tool_call_id: call.id, content: JSON.stringify(resultPayload).slice(0, 12000)});
@@ -3252,7 +3336,6 @@ async function generateAssistantResponse(chat, task = null) {
       break;
     }
 
-    setTaskStep(task, 3);
     assistantMessage.status = "done";
     if (assistantMessage.directExecution) assistantMessage.directExecution.status = "done";
     if (!assistantMessage.content.trim()) {
@@ -3263,16 +3346,34 @@ async function generateAssistantResponse(chat, task = null) {
       assistantMessage.status = "done";
       if (assistantMessage.directExecution) assistantMessage.directExecution.status = "done";
       if (!assistantMessage.content) assistantMessage.content = "หยุดการสร้างคำตอบแล้ว";
+    } else if (state.settings.localAiEnabled && /ทุกอันดับที่ตั้งค่าไว้เชื่อมต่อไม่สำเร็จ/.test(error.message)) {
+      if (!assistantMessage.directExecution) assistantMessage.directExecution = {status: "running", events: []};
+      assistantMessage.directExecution.events.push({text: "API ทุกเจ้าใช้ไม่ได้ — กำลังสลับไปใช้ AI สำรองในเครื่อง (ไม่ผ่าน API)", kind: ""});
+      renderChat();
+      try {
+        const localText = await generateWithLocalAI(apiMessages, text => {
+          assistantMessage.directExecution.events[assistantMessage.directExecution.events.length - 1] = {text, kind: ""};
+          renderChat();
+        });
+        assistantMessage.content = "🖥️ _ตอบโดย AI สำรองในเครื่อง (ไม่ผ่าน API ภายนอก)_\n\n" + (localText || "ไม่มีคำตอบ");
+        assistantMessage.status = "done";
+        assistantMessage.directExecution.status = "done";
+      } catch (localError) {
+        console.error(localError);
+        assistantMessage.status = "error";
+        assistantMessage.directExecution.status = "error";
+        assistantMessage.content = "เชื่อมต่อ AI ไม่สำเร็จ: " + error.message + "\n\nลองใช้ AI สำรองในเครื่องแล้วแต่ก็ล้มเหลว: " + localError.message;
+      }
     } else {
-      // A transient provider failure should normally be handled by fetchFromChain.
-      // Keep the UI from exposing noisy API errors if a browser/runtime failure escapes it.
-      console.warn("AI task recovered from transient runtime error", error);
-      assistantMessage.status = "done";
-      if (assistantMessage.directExecution) assistantMessage.directExecution.status = "done";
-      if (!assistantMessage.content) assistantMessage.content = "กำลังดำเนินงานต่ออัตโนมัติ";
+      console.error(error);
+      assistantMessage.status = "error";
+      if (assistantMessage.directExecution) assistantMessage.directExecution.status = "error";
+      assistantMessage.content =
+        "เชื่อมต่อ AI ไม่สำเร็จ: " + error.message +
+        "\n\nโปรดตรวจสอบ Endpoint, API Key, ชื่อโมเดล, CORS และการเชื่อมต่ออินเทอร์เน็ต";
     }
   } finally {
-    finishTask(task);
+    taskUpdate(replyTask, assistantMessage.status === "error" ? "error" : "done");
     state.generating = false;
     state.abortController = null;
     chat.updatedAt = Date.now();
@@ -3280,7 +3381,7 @@ async function generateAssistantResponse(chat, task = null) {
     renderSidebar();
     renderChat();
     updateSendButton();
-    if (state.taskQueue.length) setTimeout(processNextTask, 0);
+    maybeSummarizeMemory(chat).catch(() => {});
   }
 }
 
@@ -3510,8 +3611,8 @@ async function testProviderRow(rowEl) {
   const resultEl = rowEl.querySelector(".provider-test-result");
   const provider = {
     endpoint: rowEl.querySelector(".provider-endpoint").value.trim(),
-    model: rowEl.querySelector(".provider-models").value.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean)[0] || "",
-    apiKey: rowEl.querySelector(".provider-tokens").value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean)[0] || ""
+    model: rowEl.querySelector(".provider-model").value.trim(),
+    apiKey: rowEl.querySelector(".provider-key").value.trim()
   };
   if (!provider.endpoint || !provider.model) {
     resultEl.textContent = "กรุณากรอก Endpoint และชื่อโมเดลก่อน";
@@ -3560,9 +3661,7 @@ async function exportData() {
       ...state.settings,
       apiKey: "",
       githubToken: "",
-      socialFacebookToken: "",
-      socialTiktokToken: "",
-      providers: (state.settings.providers || []).map(p => ({...p, apiKey: "", apiKeys: []}))
+      providers: (state.settings.providers || []).map(p => ({...p, apiKey: ""}))
     },
     chats: state.chats
   };
@@ -3671,6 +3770,13 @@ function handleMessageAction(event) {
   if (action === "edit") editUserMessage(message.id);
   if (action === "retry") regenerateMessage(message.id);
   if (action === "speak") speakText(message.content);
+  if (action === "remember") {
+    const idx = chat.messages.findIndex(item => item.id === message.id);
+    const priorUser = [...chat.messages.slice(0, idx)].reverse().find(m => m.role === "user");
+    const name = (priorUser?.content || "บันทึกจากแชท").slice(0, 60);
+    addKnowledgeEntry(name, `คำถาม: ${priorUser?.content || "-"}\nคำตอบ: ${message.content}`);
+    toast("จำคำตอบนี้ไว้แล้ว — AI จะดึงมาใช้อ้างอิงในครั้งต่อไป");
+  }
 }
 
 function bindEvents() {
@@ -3712,12 +3818,60 @@ function bindEvents() {
   $("#renameChatMenu").addEventListener("click", renameSelectedChat);
   $("#deleteChatMenu").addEventListener("click", deleteSelectedChat);
 
+  $("#taskMonitor").addEventListener("click", () => $("#taskMonitorQueue").classList.toggle("hidden"));
+
+  $("#downloadLocalAiButton").addEventListener("click", async () => {
+    const status = $("#localAiStatus");
+    const model = $("#settingLocalAiModel").value;
+    status.textContent = "กำลังเตรียม...";
+    try {
+      await getLocalAiEngine(model, text => { status.textContent = text; });
+      status.textContent = "พร้อมใช้งานแล้ว ✓";
+    } catch (error) {
+      status.textContent = "ล้มเหลว: " + error.message;
+    }
+  });
+
+  $("#saveKnowledgeButton").addEventListener("click", () => {
+    const name = $("#knowledgeName").value.trim();
+    const content = $("#knowledgeContent").value.trim();
+    if (!content) { toast("กรุณาใส่เนื้อหา", "error"); return; }
+    addKnowledgeEntry(name, content);
+    $("#knowledgeName").value = ""; $("#knowledgeContent").value = "";
+    toast("บันทึกข้อมูลอ้างอิงแล้ว");
+  });
+  $("#knowledgeList").addEventListener("click", event => {
+    const id = event.target.closest(".knowledge-delete")?.dataset.knowledgeId;
+    if (id) deleteKnowledgeEntry(id);
+  });
+
+  $("#exportAllChatsButton").addEventListener("click", async () => {
+    const chats = await dbGetAllChats().catch(() => state.chats);
+    const blob = new Blob([JSON.stringify({exportedAt: Date.now(), chats}, null, 2)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `nova-chats-${Date.now()}.json`; a.click();
+    URL.revokeObjectURL(url);
+  });
+  $("#importAllChatsButton").addEventListener("click", () => $("#importAllChatsInput").click());
+  $("#importAllChatsInput").addEventListener("change", async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const chats = Array.isArray(data) ? data : (data.chats || []);
+      for (const chat of chats) { if (chat && chat.id) await dbSaveChat(chat).catch(() => {}); }
+      state.chats = await dbGetAllChats();
+      state.chats.sort((a,b) => b.updatedAt - a.updatedAt);
+      renderSidebar();
+      toast(`นำเข้าแชตแล้ว ${chats.length} รายการ`);
+    } catch (error) {
+      toast("ไฟล์ไม่ถูกต้อง: " + error.message, "error");
+    }
+    event.target.value = "";
+  });
   $("#settingsButton").addEventListener("click", () => openSettings("general"));
   $("#connectFacebookButton").addEventListener("click", () => connectSocial("facebook").catch(e => toast(e.message, "error")));
-  $("#saveFacebookTokenButton").addEventListener("click", () => saveSocialToken("facebook").catch(e => toast(e.message, "error")));
-  $("#saveTiktokTokenButton").addEventListener("click", () => saveSocialToken("tiktok").catch(e => toast(e.message, "error")));
-  $("#testFacebookTokenButton").addEventListener("click", () => testDirectSocialToken("facebook").catch(e => toast(e.message, "error")));
-  $("#testTiktokTokenButton").addEventListener("click", () => testDirectSocialToken("tiktok").catch(e => toast(e.message, "error")));
   $("#connectTiktokButton").addEventListener("click", () => connectSocial("tiktok").catch(e => toast(e.message, "error")));
   $("#socialConnectionsList").addEventListener("click", event => { const id = event.target.closest(".social-disconnect")?.dataset.connectionId; if (id) socialFunction("disconnect", "", `&id=${encodeURIComponent(id)}`).then(loadSocialConnections).catch(e => toast(e.message, "error")); });
   $("#refreshPreviewButton").addEventListener("click", renderContentPreview);
@@ -3783,17 +3937,9 @@ function bindEvents() {
       toast("เขียนไฟล์ลง Workspace Preview แล้ว");
     } catch (e) { toast(e.message, "error"); }
   });
-  $(".provider-quick-add").forEach(button => button.addEventListener("click", () => {
-    state.settings.providers = collectProvidersFromForm();
-    const presetId = button.dataset.provider;
-    const preset = PROVIDER_PRESETS[presetId] || PROVIDER_PRESETS.custom;
-    state.settings.providers.push({id: uid("prov"), presetId, label: preset.label || presetId, endpoint: preset.endpoint || "", model: preset.models?.[0] || "", models: preset.models || [], apiKey: "", apiKeys: [], enabled: true});
-    renderProviderRows();
-    toast(`เพิ่ม ${preset.label || presetId} แล้ว — กรอก Token ในแถวใหม่`);
-  }));
   $("#addProviderButton").addEventListener("click", () => {
     state.settings.providers = collectProvidersFromForm();
-    state.settings.providers.push({id: uid("prov"), presetId: "custom", label: "", endpoint: "", model: "", models:[], apiKey: "", apiKeys:[], enabled: true});
+    state.settings.providers.push({id: uid("prov"), presetId: "custom", label: "", endpoint: "", model: "", apiKey: "", enabled: true});
     renderProviderRows();
   });
 
@@ -4027,9 +4173,9 @@ async function initialize() {
   }
 
   renderSidebar();
-  renderChat({scroll:false});
-  renderTaskMonitor();
+  renderChat();
   updateSendButton();
+  renderTaskMonitor();
 }
 
 initialize();
